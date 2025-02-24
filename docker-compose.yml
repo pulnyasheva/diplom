@@ -1,0 +1,40 @@
+version: '3.1'
+---
+services:
+  postgres:
+    image: postgres:latest
+    command: -c config_file=/etc/postgresql.conf
+    restart: always
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - '5432:5432'
+    volumes:
+      - ./init:/docker-entrypoint-initdb.d
+      - ./postgresql.conf:/etc/postgresql.conf
+#    command: [ "postgres", "-c", "config_file=/etc/postgresql.conf" ]
+#  postgres_01:
+#    image: postgres:latest
+#    container_name: postgres_01
+#    restart: always
+#    ports:
+#      - '5432:5432'
+#    volumes:
+#      - /data/postgresql_01:/var/lib/postgresql/data
+#    environment:
+#      - POSTGRES_DB=postgres1
+#      - POSTGRES_USER=postgres1
+#      - POSTGRES_PASSWORD=postgres1
+#
+#  postgres_02:
+#    image: postgres:latest
+#    container_name: postgres_02
+#    restart: always
+#    volumes:
+#      - /data/postgresql_02:/var/lib/postgresql/data
+#    environment:
+##      - POSTGRES_DB=postgres2
+##      - POSTGRES_USER=postgres2
+#      - POSTGRES_PASSWORD=postgres2
