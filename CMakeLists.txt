@@ -5,14 +5,9 @@ set(CMAKE_CXX_STANDARD 20)
 
 find_library(PQXX_LIB pqxx)
 find_library(PQ_LIB pq)
-find_package(libpqxx REQUIRED)
 find_package(Boost REQUIRED)
 
-include_directories(
-        ${PostgreSQL_INCLUDE_DIR} # PostgreSQL headers (e.g., libpq-fe.h)
-        ${LIBPQXX_INCLUDE_DIRS}    # libpqxx headers
-        include                    # Your project's include directory
-)
+include_directories(${LIBPQXX_INCLUDE_DIRS} include)
 
 add_executable(diplom Connection.cpp
         include/Logger.h
@@ -21,8 +16,14 @@ add_executable(diplom Connection.cpp
         include/Connection.h
         example.cpp
         LogicalReplicationHandler.cpp
+        include/LogicalConsumer.h
+        LogicalConsumer.cpp
+        include/Exception.h
+        Exception.cpp
+        include/Scheduler.h
+        Scheduler.cpp
 )
 
 add_subdirectory(fmt)
 
-target_link_libraries(diplom libpqxx::pqxx ${PQXX_LIB} ${PQ_LIB} fmt)
+target_link_libraries(diplom ${PQXX_LIB} ${PQ_LIB} fmt)

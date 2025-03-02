@@ -5,6 +5,8 @@
 
 #include <Logger.h>
 
+#include "fmt/format.h"
+
 Logger::Logger(const std::string& file_name_) : file_name(file_name_){
     log_file.open(file_name, std::ios::app);
     if (!log_file.is_open()) {

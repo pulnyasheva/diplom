@@ -4,6 +4,8 @@
 #include <fstream>
 #include <mutex>
 
+#include "fmt/format.h"
+
 enum class LogLevel {
     DEBUG,
     INFO,

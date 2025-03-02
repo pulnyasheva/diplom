@@ -1,7 +1,7 @@
 #include <fmt/format.h>
 
-#include "Connection.h"
-#include "Logger.h"
+#include <Connection.h>
+#include <Logger.h>
 
 namespace postgres
 {
