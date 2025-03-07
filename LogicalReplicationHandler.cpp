@@ -146,13 +146,16 @@ void LogicalReplicationHandler::startSynchronization() {
 
     tx.commit();
 
-    auto consumer = std::make_shared<LogicalConsumer>(
+    auto consumer = std::make_shared<LogicalReplicationConsumer>(
         std::move(tmp_connection),
         replication_slot,
         publication_name,
         start_lsn,
         max_block_size,
         &logger);
+
+    std::cout << "create consume" << std::endl;
+    sleep(30);
 
     consumer->consume(); // Переписать как задачу с отложенным выполнением
 }

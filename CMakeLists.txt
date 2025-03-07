@@ -16,8 +16,8 @@ add_executable(diplom Connection.cpp
         include/Connection.h
         example.cpp
         LogicalReplicationHandler.cpp
-        include/LogicalConsumer.h
-        LogicalConsumer.cpp
+        include/LogicalReplicationConsumer.h
+        LogicalReplicationConsumer.cpp
         include/Exception.h
         Exception.cpp
         include/Scheduler.h

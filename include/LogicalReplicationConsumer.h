@@ -5,9 +5,9 @@
 #include <Connection.h>
 #include <Logger.h>
 
-class LogicalConsumer {
+class LogicalReplicationConsumer {
 public:
-    LogicalConsumer(
+    LogicalReplicationConsumer(
     std::shared_ptr<postgres::Connection> connection_,
     const std::string & replication_slot_name_,
     const std::string & publication_name_,

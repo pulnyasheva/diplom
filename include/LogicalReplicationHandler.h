@@ -4,7 +4,7 @@
 
 #include <Logger.h>
 #include <Connection.h>
-#include <LogicalConsumer.h>
+#include <LogicalReplicationConsumer.h>
 
 namespace pqxx {
     using ReplicationTransaction = transaction<repeatable_read, write_policy::read_only>;
@@ -16,7 +16,7 @@ namespace DB {
 
 class LogicalReplicationHandler {
 public:
-    using ConsumerPtr = std::shared_ptr<LogicalConsumer>;
+    using ConsumerPtr = std::shared_ptr<LogicalReplicationConsumer>;
 
     LogicalReplicationHandler(
             const std::string & postgres_database_,

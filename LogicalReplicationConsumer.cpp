@@ -2,10 +2,10 @@
 #include <fmt/format.h>
 #include <pqxx/pqxx>
 
-#include <LogicalConsumer.h>
+#include <LogicalReplicationConsumer.h>
 #include <Exception.h>
 
-LogicalConsumer::LogicalConsumer(
+LogicalReplicationConsumer::LogicalReplicationConsumer(
     std::shared_ptr<postgres::Connection> connection_,
     const std::string &replication_slot_name_,
     const std::string &publication_name_,
@@ -22,7 +22,7 @@ LogicalConsumer::LogicalConsumer(
       max_block_size(max_block_size_) {
 }
 
-bool LogicalConsumer::consume()
+bool LogicalReplicationConsumer::consume()
 {
     bool slot_empty = true;
     try
@@ -110,4 +110,3 @@ bool LogicalConsumer::consume()
 
     return true;
 }
-
