@@ -110,13 +110,14 @@ void LogicalReplicationParser::parseChangeData(
 {
     int16_t num_columns = parseInt16(message, pos, size);
 
-    auto proccess_column_value = [&](int8_t identifier_data)
+    auto proccess_column_value = [&](int8_t identifier_data, int16_t column_idx)
     {
         logger->log(LogLevel::DEBUG, fmt::format("Identifier data: {}", identifier_data));
         switch (identifier_data)
         {
             case 'n': /// NULL
             {
+                logger->log(LogLevel::INFO, fmt::format("NULL in column to: {}", column_idx));
                 // Вставляем в целевую какую-то дефолтную константу
                 break;
             }
@@ -133,19 +134,20 @@ void LogicalReplicationParser::parseChangeData(
             }
             case 'u': /// Values that are too large to be stored directly.
             {
-                logger->log(LogLevel::WARNING, "Values that are too large to be stored directly");
+                logger->log(LogLevel::WARNING,
+                            fmt::format("Values that are too large to be stored directly in column: {}", column_idx));
                 // Вставляем в целевую какую-то дефолтную константу
                 break;
             }
             case 'b': /// Binary data.
             {
-                // Вставляем в целевую какую-то дефолтную константу (такие данные не будут обработаны)
+                logger->log(LogLevel::INFO, fmt::format("Binary data is not processed in column: {}", column_idx));
+                // Вставляем в целевую какую-то дефолтную константу
                 break;
             }
             default:
             {
                 logger->log(LogLevel::WARNING, fmt::format("Unexpected identifier: {}", identifier_data));
-
                 // Вставляем в целевую какую-то дефолтную константу
                 break;
             }
@@ -156,7 +158,7 @@ void LogicalReplicationParser::parseChangeData(
     {
         try
         {
-            proccess_column_value(parseInt8(message, pos, size));
+            proccess_column_value(parseInt8(message, pos, size), column_idx);
         }
         catch (std::exception &e)
         {
