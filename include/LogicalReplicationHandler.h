@@ -1,10 +1,12 @@
 #pragma once
 
 #include <pqxx/pqxx>
+#include <future>
 
 #include <Logger.h>
 #include <Connection.h>
 #include <LogicalReplicationConsumer.h>
+#include <Scheduler.h>
 
 namespace pqxx {
     using ReplicationTransaction = transaction<repeatable_read, write_policy::read_only>;
@@ -28,8 +30,10 @@ public:
             bool user_managed_slot = false,
             std::string user_snapshot = "");
 
-    /// Start replication setup immediately.
+    /// Start replication.
     void startSynchronization();
+
+    bool runConsumer();
 
     ConsumerPtr getConsumer();
 

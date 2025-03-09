@@ -22,6 +22,8 @@ add_executable(diplom Connection.cpp
         Exception.cpp
         include/Scheduler.h
         Scheduler.cpp
+        include/LogicalReplicationParser.h
+        LogicalReplicationParser.cpp
 )
 
 add_subdirectory(fmt)

@@ -18,13 +18,11 @@ public:
     bool consume();
 
 private:
-    static uint64_t getLSNValue(const std::string & lsn)
-    {
-        uint32_t upper_half;
-        uint32_t lower_half;
-        std::sscanf(lsn.data(), "%X/%X", &upper_half, &lower_half); /// NOLINT
-        return (static_cast<uint64_t>(upper_half) << 32) + lower_half;
-    }
+    uint64_t getLSNValue(const std::string & lsn);
+
+    void updateLsn();
+
+    std::string advanceLSN(std::shared_ptr<pqxx::nontransaction> tx);
 
     Logger *logger;
     const std::string replication_slot_name, publication_name;

@@ -10,9 +10,9 @@ class Scheduler {
 public:
     explicit Scheduler(Logger *logger_);
 
-    std::packaged_task<void()> createTask(const std::string& name, std::function<void()> func);
+    std::packaged_task<bool()> createTask(const std::string& name, std::function<bool()> func);
 
-    void runTask(std::packaged_task<void()> task);
+    bool runTask(std::packaged_task<bool()> task);
 
 private:
     Logger *logger;

@@ -3,6 +3,7 @@
 #include <pqxx/pqxx>
 
 #include <LogicalReplicationConsumer.h>
+#include <LogicalReplicationParser.h>
 #include <Exception.h>
 
 LogicalReplicationConsumer::LogicalReplicationConsumer(
@@ -22,8 +23,42 @@ LogicalReplicationConsumer::LogicalReplicationConsumer(
       max_block_size(max_block_size_) {
 }
 
+uint64_t LogicalReplicationConsumer::getLSNValue(const std::string & lsn)
+{
+    uint32_t upper_half;
+    uint32_t lower_half;
+    std::sscanf(lsn.data(), "%X/%X", &upper_half, &lower_half);
+    return (static_cast<uint64_t>(upper_half) << 32) + lower_half;
+}
+
+void LogicalReplicationConsumer::updateLsn()
+{
+    try
+    {
+        auto tx = std::make_shared<pqxx::nontransaction>(connection->getRef());
+        current_lsn = advanceLSN(tx);
+        tx->commit();
+    }
+    catch (std::exception &e)
+    {
+        logger->log(LogLevel::ERROR, fmt::format("Error for update lsn: {}", e.what()));
+    }
+}
+
+std::string LogicalReplicationConsumer::advanceLSN(std::shared_ptr<pqxx::nontransaction> tx) {
+    std::string query_str = fmt::format("SELECT end_lsn FROM pg_replication_slot_advance('{}', '{}')",
+                                        replication_slot_name, final_lsn);
+    pqxx::result result{tx->exec(query_str)};
+
+    final_lsn = result[0][0].as<std::string>();
+    logger->log(LogLevel::DEBUG, fmt::format("Advanced LSN up to: {}", getLSNValue(final_lsn)));
+    committed = false;
+    return final_lsn;
+}
+
 bool LogicalReplicationConsumer::consume()
 {
+    updateLsn();
     bool slot_empty = true;
     try
     {
@@ -32,13 +67,14 @@ bool LogicalReplicationConsumer::consume()
         /// Read up to max_block_size rows changes (upto_n_changes parameter). It might return larger number as the limit
         /// is checked only after each transaction block.
         /// Returns less than max_block_changes, if reached end of wal. Sync to table in this case.
-
         std::string query_str = fmt::format(
                 "select lsn, data FROM pg_logical_slot_peek_binary_changes("
                 "'{}', NULL, {}, 'publication_names', '{}', 'proto_version', '1')",
                 replication_slot_name, max_block_size, publication_name);
 
         auto stream{pqxx::stream_from::query(*tx, query_str)};
+
+        LogicalReplicationParser parser = LogicalReplicationParser(&current_lsn, &final_lsn, &committed, logger);
 
         while (true)
         {
@@ -63,10 +99,17 @@ bool LogicalReplicationConsumer::consume()
 
             std::cout << fmt::format("Current message: {}", (*row)[1]) << std::endl;
 
-            // Нужна логика для парсинга бинарных данных
+            try
+            {
+                parser.parseBinaryData((*row)[1].c_str(), (*row)[1].size());
+            }
+            catch (const Exception &e)
+            {
+                logger->log(LogLevel::ERROR, fmt::format("Error during parsing: {}", e.what()));
+            }
         }
     }
-    catch (const Exception & e)
+    catch (const Exception &e)
     {
         logger->log(LogLevel::ERROR, fmt::format("Exception thrown in consume", e.what()));
         return false;
@@ -77,15 +120,11 @@ bool LogicalReplicationConsumer::consume()
         connection->tryUpdateConnection();
         return false;
     }
-    catch (const pqxx::sql_error & e)
+    catch (const pqxx::sql_error &e)
     {
-        /// For now sql replication interface is used and it has the problem that it registers relcache
-        /// callbacks on each pg_logical_slot_get_changes and there is no way to invalidate them:
-        /// https://github.com/postgres/postgres/blob/master/src/backend/replication/pgoutput/pgoutput.c#L1128
-        /// So at some point will get out of limit and then they will be cleaned.
         std::string error_message = e.what();
         if (!error_message.find("out of relcache_callback_list slots"))
-            logger->log(LogLevel::ERROR, fmt::format("Exception caught: {}",  error_message));
+            logger->log(LogLevel::ERROR, fmt::format("Exception caught: {}", error_message));
 
         connection->tryUpdateConnection();
         return false;
@@ -106,7 +145,11 @@ bool LogicalReplicationConsumer::consume()
         return false;
     }
 
-    // Нужно обновить lsn, но не всегда (надо подумать когда)
+    if (committed)
+    {
+        logger->log(LogLevel::DEBUG, "Update lsn");
+        updateLsn();
+    }
 
     return true;
 }

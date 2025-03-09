@@ -93,9 +93,7 @@ LogicalReplicationHandler::LogicalReplicationHandler(
       max_block_size(max_block_size_)
 {
     if (tables_list.empty()) {
-        std::string error_message = "Cannot have tables list at the same time";
-        logger.log(LogLevel::ERROR, error_message);
-        throw Exception(ErrorCodes::BAD_ARGUMENTS, error_message);
+        throw Exception(ErrorCodes::BAD_ARGUMENTS, "Cannot have tables list at the same time");
     }
 
     checkReplicationSlot(replication_slot);
@@ -104,6 +102,10 @@ LogicalReplicationHandler::LogicalReplicationHandler(
                "Using replication slot {} and publication {}",
                replication_slot,
                doubleQuoteString(publication_name)));
+}
+
+bool LogicalReplicationHandler::runConsumer() {
+    return getConsumer()->consume();
 }
 
 void LogicalReplicationHandler::startSynchronization() {
@@ -118,22 +120,27 @@ void LogicalReplicationHandler::startSynchronization() {
     auto initial_sync = [&]() {
         logger.log(LogLevel::DEBUG, "Starting tables sync load");
 
-        if (user_managed_slot)
+        try
         {
-            if (user_snapshot.empty()) {
-                std::string error_message = fmt::format("Using a user-defined replication slot must");
-                logger.log(LogLevel::ERROR, error_message);
-                throw Exception(ErrorCodes::BAD_ARGUMENTS, error_message);
-            }
-            snapshot_name = user_snapshot;
-        }
-        else
-        {
-            createReplicationSlot(tx, start_lsn, snapshot_name);
-        }
+            if (user_managed_slot)
+            {
+                if (user_snapshot.empty())
+                    throw Exception(ErrorCodes::BAD_ARGUMENTS, "Using a user-defined replication slot must");
 
-        for (std::string table_name : tables_array) {
-            loadFromSnapshot(*tmp_connection, snapshot_name, table_name);
+                snapshot_name = user_snapshot;
+            }
+            else
+            {
+                createReplicationSlot(tx, start_lsn, snapshot_name);
+            }
+
+            for (std::string table_name : tables_array) {
+                loadFromSnapshot(*tmp_connection, snapshot_name, table_name);
+            }
+        }
+        catch (Exception &e)
+        {
+            logger.log(LogLevel::ERROR, e.what());
         }
     };
 
@@ -146,27 +153,21 @@ void LogicalReplicationHandler::startSynchronization() {
 
     tx.commit();
 
-    auto consumer = std::make_shared<LogicalReplicationConsumer>(
+    consumer = std::make_shared<LogicalReplicationConsumer>(
         std::move(tmp_connection),
         replication_slot,
         publication_name,
         start_lsn,
         max_block_size,
         &logger);
-
-    std::cout << "create consume" << std::endl;
-    sleep(30);
-
-    consumer->consume(); // Переписать как задачу с отложенным выполнением
+    logger.log(LogLevel::DEBUG, "Consumer created");
 }
 
 LogicalReplicationHandler::ConsumerPtr LogicalReplicationHandler::getConsumer()
 {
-    if (!consumer) {
-        std::string error_message = "Consumer not initialized";
-        logger.log(LogLevel::ERROR, error_message);
-        throw Exception(ErrorCodes::LOGICAL_ERROR, error_message);
-    }
+    if (!consumer)
+        throw Exception(ErrorCodes::LOGICAL_ERROR, "Consumer not initialized");
+
     return consumer;
 }
 
@@ -176,10 +177,9 @@ bool LogicalReplicationHandler::isPublicationExist(pqxx::nontransaction & tx)
                                         publication_name);
     pqxx::result result{tx.exec(query_str)};
 
-    if (result.empty()) {
-        logger.log(LogLevel::ERROR, fmt::format("Publication does not exist: {}", publication_name));
-        throw std::runtime_error("Publication does not exist");
-    }
+    if (result.empty())
+        throw Exception(ErrorCodes::LOGICAL_ERROR,
+            fmt::format("Publication does not exist: {}", publication_name));
 
     return result[0][0].as<std::string>() == "t";
 }
@@ -193,13 +193,15 @@ void LogicalReplicationHandler::createPublicationIfNeeded(pqxx::nontransaction &
 
         std::string query_str = fmt::format("CREATE PUBLICATION {} FOR TABLE ONLY {}",
                                             publication_name, tables_list);
-        try {
+        try
+        {
             tx.exec(query_str);
             logger.log(LogLevel::DEBUG, fmt::format(
                        "Created publication {} with tables list: {}", publication_name, tables_list));
-        } catch (const std::exception& e) {
-            logger.log(LogLevel::ERROR, fmt::format("While creating pg_publication {}", e.what()));
-            throw;
+        }
+        catch (const std::exception& e)
+        {
+            throw Exception(ErrorCodes::LOGICAL_ERROR, fmt::format("While creating pg_publication {}", e.what()));
         }
     } else {
         logger.log(LogLevel::DEBUG, fmt::format("Using existing publication ({}) version", publication_name));
@@ -224,7 +226,6 @@ bool LogicalReplicationHandler::isReplicationSlotExist(pqxx::nontransaction & tx
     logger.log(LogLevel::DEBUG, fmt::format(
                "Replication slot {} already exists (active: {}). Restart lsn position: {}, confirmed flush lsn: {}",
                slot_name, result[0][0].as<bool>(), result[0][1].as<std::string>(), start_lsn));
-    std::cout << "create slot" << std::endl;
     return true;
 }
 
@@ -237,17 +238,19 @@ void LogicalReplicationHandler::createReplicationSlot(pqxx::nontransaction &tx,
     query_str = fmt::format("CREATE_REPLICATION_SLOT {} LOGICAL pgoutput EXPORT_SNAPSHOT",
                             doubleQuoteString(slot_name));
 
-    try {
+    try
+    {
         pqxx::result result{tx.exec(query_str)};
         start_lsn = result[0][1].as<std::string>();
         snapshot_name = result[0][2].as<std::string>();
         logger.log(LogLevel::INFO, fmt::format(
                        "Created replication slot: {}, start lsn: {}, snapshot: {}",
                        replication_slot, start_lsn, snapshot_name));
-    } catch (std::exception &e) {
-        logger.log(LogLevel::ERROR, fmt::format(
-                       "While creating PostgreSQL replication slot {}: {}", slot_name, e.what()));
-        throw;
+    }
+    catch (std::exception &e)
+    {
+        throw Exception(ErrorCodes::LOGICAL_ERROR, fmt::format(
+                            "While creating PostgreSQL replication slot {}: {}", slot_name, e.what()));
     }
 }
 
@@ -258,7 +261,7 @@ void LogicalReplicationHandler::dropReplicationSlot(pqxx::nontransaction & tx)
     std::string query_str = fmt::format("SELECT pg_drop_replication_slot('{}')", slot_name);
 
     tx.exec(query_str);
-    logger.log(LogLevel::DEBUG, fmt::format("Dropped replication slot: {}", slot_name));
+    logger.log(LogLevel::INFO, fmt::format("Dropped replication slot: {}", slot_name));
 }
 
 void LogicalReplicationHandler::loadFromSnapshot(postgres::Connection &connection,
