@@ -8,12 +8,12 @@
 
 LogicalReplicationParser::LogicalReplicationParser(
     std::string *current_lsn_,
-    std::string *final_lsn_,
-    bool *committed_,
+    std::string *result_lsn_,
+    bool *is_committed_,
     Logger *logger_)
     : current_lsn(current_lsn_),
-      final_lsn(final_lsn_),
-      committed(committed_),
+      result_lsn(result_lsn_),
+      is_committed(is_committed_),
       logger(logger_) {
 }
 
@@ -311,8 +311,8 @@ void LogicalReplicationParser::parseBinaryData(const char * replication_message,
             constexpr size_t transaction_commit_timestamp_len = 8;
             pos += unused_flags_len + commit_lsn_len + transaction_end_lsn_len + transaction_commit_timestamp_len;
 
-            final_lsn = current_lsn;
-            *committed = true;
+            result_lsn = current_lsn;
+            *is_committed = true;
             break;
         }
         case 'R': // Relation

@@ -5,19 +5,19 @@
 
 namespace postgres
 {
-    Connection::Connection(const std::string & connection_info_, Logger *logger_, bool replication_, size_t num_tries_)
-        : connection_info(connection_info_),
+    Connection::Connection(const std::string & connection_dsn_, Logger *logger_, bool replication_, size_t attempt_count_)
+        : connection_dsn(connection_dsn_),
           replication(replication_),
-          num_tries(num_tries_),
+          attempt_count(attempt_count_),
           logger(logger_) {
 
         if (replication)
-            connection_info = fmt::format("{}?replication=database", connection_info);
+            connection_dsn = fmt::format("{}?replication=database", connection_dsn);
     }
 
-    void Connection::execWithRetry(const std::function<void(pqxx::nontransaction &)> & exec)
+    void Connection::retryExecution(const std::function<void(pqxx::nontransaction &)> & exec)
     {
-        for (size_t try_no = 0; try_no < num_tries; ++try_no)
+        for (size_t attempt_ind = 0; attempt_ind < attempt_count; ++attempt_ind)
         {
             try
             {
@@ -29,9 +29,9 @@ namespace postgres
             {
                 logger->log(LogLevel::DEBUG, fmt::format(
                                 "Cannot execute query due to connection failure, attempt: {}/{}. (Message: {})",
-                                try_no, num_tries, e.what()));
+                                attempt_ind, attempt_count, e.what()));
 
-                if (try_no + 1 == num_tries)
+                if (attempt_ind + 1 == attempt_count)
                     throw;
             }
         }
@@ -43,11 +43,11 @@ namespace postgres
         return *connection;
     }
 
-    void Connection::tryUpdateConnection()
+    void Connection::tryRefreshConnection()
     {
         try
         {
-            updateConnection();
+            refreshConnection();
         }
         catch (const pqxx::broken_connection & e)
         {
@@ -55,16 +55,16 @@ namespace postgres
         }
     }
 
-    void Connection::updateConnection()
+    void Connection::refreshConnection()
     {
         try {
             /// Always throws if there is no connection.
-            connection = std::make_unique<pqxx::connection>(connection_info);
+            connection = std::make_unique<pqxx::connection>(connection_dsn);
 
             if (replication)
                 connection->set_variable("default_transaction_isolation", "'repeatable read'");
 
-            logger->log(LogLevel::DEBUG, fmt::format("New connection {}", connection_info));
+            logger->log(LogLevel::DEBUG, fmt::format("New connection {}", connection_dsn));
         } catch (const std::exception& e) {
             logger->log(LogLevel::ERROR, fmt::format("Connection update failed: {}", e.what()));
             throw;
@@ -75,7 +75,7 @@ namespace postgres
     void Connection::connect()
     {
         if (!connection || !connection->is_open())
-            updateConnection();
+            refreshConnection();
     }
 
 }

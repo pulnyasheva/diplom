@@ -16,8 +16,8 @@ class LogicalReplicationParser {
 public:
     LogicalReplicationParser(
         std::string *current_lsn_,
-        std::string *final_lsn_,
-        bool *committed_,
+        std::string *result_lsn_,
+        bool *is_committed_,
         Logger *logger_);
 
     void parseBinaryData(const char * replication_message, size_t size);
@@ -45,8 +45,8 @@ private:
     std::unordered_map<int32_t, std::string> id_to_table_name;
     std::unordered_set<int32_t> id_skip_table_name;
 
-    bool *committed;
+    bool *is_committed;
 
-    std::string *current_lsn, *final_lsn;
+    std::string *current_lsn, *result_lsn;
     Logger *logger;
 };

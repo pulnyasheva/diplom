@@ -47,7 +47,7 @@ namespace {
         return slot_name;
     }
 
-    std::string createTableList(std::vector<std::string> tables_array) {
+    std::string createTablesNames(std::vector<std::string> tables_array) {
         std::ostringstream oss;
         for (size_t i = 0; i < tables_array.size(); ++i) {
             oss << tables_array[i];
@@ -76,23 +76,23 @@ namespace {
 LogicalReplicationHandler::LogicalReplicationHandler(
     const std::string &postgres_database_,
     const std::string &postgres_table_,
-    const std::string &connection_info_,
+    const std::string &connection_dsn_,
     const std::string &file_name_,
     std::vector<std::string> &tables_array_,
     size_t max_block_size_,
     const bool user_managed_slot_,
     const std::string user_snapshot_)
-    : connection_info(connection_info_),
+    : connection_dsn(connection_dsn_),
       logger(file_name_),
       tables_array(tables_array_),
-      tables_list(createTableList(tables_array_)),
+      tables_names(createTablesNames(tables_array_)),
       replication_slot(getReplicationSlotName(postgres_database_, postgres_table_)),
       publication_name(getPublicationName(postgres_database_, postgres_table_)),
       user_managed_slot(user_managed_slot_),
       user_snapshot(user_snapshot_),
       max_block_size(max_block_size_)
 {
-    if (tables_list.empty()) {
+    if (tables_names.empty()) {
         throw Exception(ErrorCodes::BAD_ARGUMENTS, "Cannot have tables list at the same time");
     }
 
@@ -109,13 +109,13 @@ bool LogicalReplicationHandler::runConsumer() {
 }
 
 void LogicalReplicationHandler::startSynchronization() {
-    postgres::Connection replication_connection(connection_info, &logger, true);
+    postgres::Connection replication_connection(connection_dsn, &logger, true);
     pqxx::nontransaction tx(replication_connection.getRef());
-    createPublicationIfNeeded(tx);
+    createPublication(tx);
 
     std::string snapshot_name;
     std::string start_lsn;
-    auto tmp_connection = std::make_shared<postgres::Connection>(connection_info, &logger);
+    auto tmp_connection = std::make_shared<postgres::Connection>(connection_dsn, &logger);
 
     auto initial_sync = [&]() {
         logger.log(LogLevel::DEBUG, "Starting tables sync load");
@@ -144,7 +144,7 @@ void LogicalReplicationHandler::startSynchronization() {
         }
     };
 
-    if (!isReplicationSlotExist(tx, start_lsn)) {
+    if (!hasReplicationSlot(tx, start_lsn)) {
         initial_sync();
     } else {
         dropReplicationSlot(tx);
@@ -171,7 +171,7 @@ LogicalReplicationHandler::ConsumerPtr LogicalReplicationHandler::getConsumer()
     return consumer;
 }
 
-bool LogicalReplicationHandler::isPublicationExist(pqxx::nontransaction & tx)
+bool LogicalReplicationHandler::hasPublication(pqxx::nontransaction & tx)
 {
     std::string query_str = fmt::format("SELECT exists (SELECT 1 FROM pg_publication WHERE pubname = '{}')",
                                         publication_name);
@@ -184,20 +184,20 @@ bool LogicalReplicationHandler::isPublicationExist(pqxx::nontransaction & tx)
     return result[0][0].as<std::string>() == "t";
 }
 
-void LogicalReplicationHandler::createPublicationIfNeeded(pqxx::nontransaction &tx) {
-    auto publication_exists = isPublicationExist(tx);
+void LogicalReplicationHandler::createPublication(pqxx::nontransaction &tx) {
+    auto publication_exists = hasPublication(tx);
 
     if (!publication_exists) {
-        if (tables_list.empty())
+        if (tables_names.empty())
             throw std::logic_error("No table found to be replicated");
 
         std::string query_str = fmt::format("CREATE PUBLICATION {} FOR TABLE ONLY {}",
-                                            publication_name, tables_list);
+                                            publication_name, tables_names);
         try
         {
             tx.exec(query_str);
             logger.log(LogLevel::DEBUG, fmt::format(
-                       "Created publication {} with tables list: {}", publication_name, tables_list));
+                       "Created publication {} with tables list: {}", publication_name, tables_names));
         }
         catch (const std::exception& e)
         {
@@ -208,7 +208,7 @@ void LogicalReplicationHandler::createPublicationIfNeeded(pqxx::nontransaction &
     }
 }
 
-bool LogicalReplicationHandler::isReplicationSlotExist(pqxx::nontransaction & tx, std::string & start_lsn)
+bool LogicalReplicationHandler::hasReplicationSlot(pqxx::nontransaction & tx, std::string & start_lsn)
 {
     std::string slot_name = replication_slot;
 

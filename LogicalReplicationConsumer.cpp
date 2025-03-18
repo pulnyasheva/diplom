@@ -18,12 +18,12 @@ LogicalReplicationConsumer::LogicalReplicationConsumer(
       publication_name(publication_name_),
       connection(std::move(connection_)),
       current_lsn(start_lsn),
-      final_lsn(start_lsn),
-      lsn_value(getLSNValue(start_lsn)),
+      result_lsn(start_lsn),
+      lsn_value(getLSN(start_lsn)),
       max_block_size(max_block_size_) {
 }
 
-uint64_t LogicalReplicationConsumer::getLSNValue(const std::string & lsn)
+uint64_t LogicalReplicationConsumer::getLSN(const std::string & lsn)
 {
     uint32_t upper_half;
     uint32_t lower_half;
@@ -31,7 +31,7 @@ uint64_t LogicalReplicationConsumer::getLSNValue(const std::string & lsn)
     return (static_cast<uint64_t>(upper_half) << 32) + lower_half;
 }
 
-void LogicalReplicationConsumer::updateLsn()
+void LogicalReplicationConsumer::updateLSN()
 {
     try
     {
@@ -47,19 +47,19 @@ void LogicalReplicationConsumer::updateLsn()
 
 std::string LogicalReplicationConsumer::advanceLSN(std::shared_ptr<pqxx::nontransaction> tx) {
     std::string query_str = fmt::format("SELECT end_lsn FROM pg_replication_slot_advance('{}', '{}')",
-                                        replication_slot_name, final_lsn);
+                                        replication_slot_name, result_lsn);
     pqxx::result result{tx->exec(query_str)};
 
-    final_lsn = result[0][0].as<std::string>();
-    logger->log(LogLevel::DEBUG, fmt::format("Advanced LSN up to: {}", getLSNValue(final_lsn)));
-    committed = false;
-    return final_lsn;
+    result_lsn = result[0][0].as<std::string>();
+    logger->log(LogLevel::DEBUG, fmt::format("Advanced LSN up to: {}", getLSN(result_lsn)));
+    is_committed = false;
+    return result_lsn;
 }
 
 bool LogicalReplicationConsumer::consume()
 {
-    updateLsn();
-    bool slot_empty = true;
+    updateLSN();
+    bool is_slot_empty = true;
     try
     {
         auto tx = std::make_shared<pqxx::nontransaction>(connection->getRef());
@@ -74,7 +74,7 @@ bool LogicalReplicationConsumer::consume()
 
         auto stream{pqxx::stream_from::query(*tx, query_str)};
 
-        LogicalReplicationParser parser = LogicalReplicationParser(&current_lsn, &final_lsn, &committed, logger);
+        LogicalReplicationParser parser = LogicalReplicationParser(&current_lsn, &result_lsn, &is_committed, logger);
 
         while (true)
         {
@@ -84,7 +84,7 @@ bool LogicalReplicationConsumer::consume()
             {
                 stream.complete();
 
-                if (slot_empty)
+                if (is_slot_empty)
                 {
                     tx->commit();
                     return false;
@@ -93,9 +93,9 @@ bool LogicalReplicationConsumer::consume()
                 break;
             }
 
-            slot_empty = false;
+            is_slot_empty = false;
             current_lsn = (*row)[0];
-            lsn_value = getLSNValue(current_lsn);
+            lsn_value = getLSN(current_lsn);
 
             std::cout << fmt::format("Current message: {}", (*row)[1]) << std::endl;
 
@@ -117,7 +117,7 @@ bool LogicalReplicationConsumer::consume()
     catch (const pqxx::broken_connection &)
     {
         logger->log(LogLevel::ERROR, "Connection was broken");
-        connection->tryUpdateConnection();
+        connection->tryRefreshConnection();
         return false;
     }
     catch (const pqxx::sql_error &e)
@@ -126,7 +126,7 @@ bool LogicalReplicationConsumer::consume()
         if (!error_message.find("out of relcache_callback_list slots"))
             logger->log(LogLevel::ERROR, fmt::format("Exception caught: {}", error_message));
 
-        connection->tryUpdateConnection();
+        connection->tryRefreshConnection();
         return false;
     }
     catch (const pqxx::conversion_error & e)
@@ -145,10 +145,10 @@ bool LogicalReplicationConsumer::consume()
         return false;
     }
 
-    if (committed)
+    if (is_committed)
     {
         logger->log(LogLevel::DEBUG, "Update lsn");
-        updateLsn();
+        updateLSN();
     }
 
     return true;

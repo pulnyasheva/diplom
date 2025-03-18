@@ -18,20 +18,20 @@ public:
     bool consume();
 
 private:
-    uint64_t getLSNValue(const std::string & lsn);
+    uint64_t getLSN(const std::string & lsn);
 
-    void updateLsn();
+    void updateLSN();
 
     std::string advanceLSN(std::shared_ptr<pqxx::nontransaction> tx);
 
     Logger *logger;
     const std::string replication_slot_name, publication_name;
 
-    bool committed = false;
+    bool is_committed = false;
 
     std::shared_ptr<postgres::Connection> connection;
 
-    std::string current_lsn, final_lsn;
+    std::string current_lsn, result_lsn;
     uint64_t lsn_value;
 
     size_t max_block_size;

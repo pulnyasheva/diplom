@@ -17,31 +17,31 @@ namespace postgres
     {
     public:
         explicit Connection(
-            const std::string & connection_info_,
+            const std::string & connection_dsn_,
             Logger *logger_,
             bool replication_ = false,
-            size_t num_tries = 3);
+            size_t attempt_count = 3);
 
-        void execWithRetry(const std::function<void(pqxx::nontransaction &)> & exec);
+        void retryExecution(const std::function<void(pqxx::nontransaction &)> & exec);
 
         pqxx::connection & getRef();
 
         void connect();
 
-        void updateConnection();
+        void refreshConnection();
 
-        void tryUpdateConnection();
+        void tryRefreshConnection();
 
         bool isConnected() const { return connection != nullptr && connection->is_open(); }
 
-        const std::string & getConnectionInfo() { return connection_info; }
+        const std::string & getConnectionDSN() { return connection_dsn; }
 
     private:
         pqxx::ConnectionPtr connection;
-        std::string connection_info;
+        std::string connection_dsn;
 
         bool replication;
-        size_t num_tries;
+        size_t attempt_count;
 
         Logger *logger;
     };

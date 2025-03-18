@@ -23,7 +23,7 @@ public:
     LogicalReplicationHandler(
             const std::string & postgres_database_,
             const std::string & postgres_table_,
-            const std::string & connection_info_,
+            const std::string & connection_dsn_,
             const std::string & file_name_,
             std::vector<std::string> & tables_array_,
             size_t max_block_size_,
@@ -38,11 +38,11 @@ public:
     ConsumerPtr getConsumer();
 
 private:
-    bool isPublicationExist(pqxx::nontransaction & tx);
+    bool hasPublication(pqxx::nontransaction & tx);
 
-    void createPublicationIfNeeded(pqxx::nontransaction &tx);
+    void createPublication(pqxx::nontransaction &tx);
 
-    bool isReplicationSlotExist(pqxx::nontransaction & tx, std::string & start_lsn);
+    bool hasReplicationSlot(pqxx::nontransaction & tx, std::string & start_lsn);
 
     void createReplicationSlot(pqxx::nontransaction & tx, std::string & start_lsn, std::string & snapshot_name);
 
@@ -50,12 +50,12 @@ private:
 
     void loadFromSnapshot(postgres::Connection & connection, std::string & snapshot_name, const std::string &table_name);
 
-    std::string connection_info;
+    std::string connection_dsn;
     Logger logger;
 
     std::vector<std::string> tables_array;
     /// A coma-separated list of tables, which are going to be replicated for database engine. By default, a whole database is replicated.
-    std::string tables_list;
+    std::string tables_names;
 
     const bool user_managed_slot;
     const std::string user_snapshot;
