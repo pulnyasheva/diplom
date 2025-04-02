@@ -4,16 +4,16 @@
 #include <functional>
 #include <string>
 
-#include <Logger.h>
+#include <logger.h>
 
-class Scheduler {
+class scheduler {
 public:
-    explicit Scheduler(Logger *logger_);
+    explicit scheduler(logger *logger_);
 
     std::packaged_task<bool()> createTask(const std::string& name, std::function<bool()> func);
 
     bool runTask(std::packaged_task<bool()> task);
 
 private:
-    Logger *logger;
+    logger *current_logger;
 };

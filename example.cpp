@@ -1,8 +1,8 @@
 #include <iostream>
 #include <string>
 
-#include <Logger.h>
-#include <LogicalReplicationHandler.h>
+#include <logger.h>
+#include <logical_replication_handler.h>
 
 bool exampleDatabaseQuery(const std::string conninfo) {
     try {
@@ -16,13 +16,27 @@ bool exampleDatabaseQuery(const std::string conninfo) {
 
         tx.exec("INSERT INTO students (first_name, last_name, age, email) "
                 "VALUES ('John', 'Doe', 21, 'john.doe2@example.com'), "
-                "('Bob', 'Brown', 27, 'bob.brown2@example.com');");
+                "('Lui', 'Doe', 21, 'lui.doe2@example.com'), "
+                "('Lui', 'Brown', 27, 'lui.brown2@example.com');");
 
         tx.exec("UPDATE students SET age = 50 WHERE email = 'bob.brown2@example.com';");
 
-        tx.exec("UPDATE students SET age = 12 WHERE id = 2;");
+        pqxx::result R = tx.exec("SELECT * FROM students");
+        for (size_t i = 0; i < R.columns(); ++i) {
+            std::cout << R.column_name(i) << "\t";
+        }
+        std::cout << std::endl;
 
-        tx.exec("DELETE FROM students WHERE email = 'bob.brown2@example.com';");
+        for (const auto& row : R) {
+            for (const auto& field : row) {
+                std::cout << field.c_str() << "\t";
+            }
+            std::cout << std::endl;
+        }
+
+        tx.exec("UPDATE students SET id = 17 WHERE email = 'john.doe2@example.com';");
+
+        tx.exec("DELETE FROM students WHERE first_name = 'Lui';");
 
         tx.exec("DELETE FROM students WHERE email = 'john.doe2@example.com';");
 
@@ -39,7 +53,7 @@ int main() {
     const std::string conninfo = "postgresql://postgres:postgres@172.29.190.7:5432/postgres";
 
     std::vector<std::string> tables = {"students"};
-    LogicalReplicationHandler replication_handler = LogicalReplicationHandler(
+    logical_replication_handler replication_handler = logical_replication_handler(
         "postgres",
         "students",
         conninfo,
@@ -47,13 +61,13 @@ int main() {
         tables,
         100);
 
-    replication_handler.startSynchronization();
+    replication_handler.start_synchronization();
 
     if (!exampleDatabaseQuery(conninfo)) {
         return 1;
     }
 
-    std::cout << replication_handler.runConsumer() << std::endl;
+    std::cout << replication_handler.run_consumer() << std::endl;
 
     return 0;
 }

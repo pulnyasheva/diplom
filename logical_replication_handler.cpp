@@ -3,51 +3,51 @@
 #include <iostream>
 #include <unordered_set>
 
-#include <LogicalReplicationHandler.h>
-#include <Connection.h>
-#include <Exception.h>
+#include <logical_replication_handler.h>
+#include <сonnection.h>
+#include <exception.h>
 
 namespace {
-    std::string getPublicationName(const std::string & postgres_database, const std::string & postgres_table)
+    std::string get_publication_name(const std::string & postgres_database, const std::string & postgres_table)
     {
         return fmt::format(
             "{}_ch_publication",
             postgres_table.empty() ? postgres_database : fmt::format("{}_{}", postgres_database, postgres_table));
     }
 
-    void checkReplicationSlot(std::string name)
+    void check_replication_slot(std::string name)
     {
         for (const auto &c: name) {
             const bool ok = (std::isalpha(c) && std::islower(c)) || std::isdigit(c) || c == '_';
             if (!ok) {
-                throw Exception(
-                    ErrorCodes::BAD_ARGUMENTS,
+                throw exception(
+                    error_codes::BAD_ARGUMENTS,
                     fmt::format(
-                        "Replication slot can contain lower-case letters, numbers, and the underscore character. Got: {}",
+                        "Replication slot can contain lower-case letters, numbers, and the underscore character {}",
                         name));
             }
         }
 
         if (name.size() > DB::replication_slot_name_max_size)
-            throw Exception(ErrorCodes::LOGICAL_ERROR,
-                            fmt::format("Too big replication slot size: {}", name));
+            throw exception(error_codes::LOGICAL_ERROR,
+                            fmt::format("Big replication slot size: {}", name));
     }
 
-    std::string normalizeReplicationSlot(std::string name) {
+    std::string normalize_replication_slot(std::string name) {
         std::transform(name.begin(), name.end(), name.begin(),
                        [](unsigned char c) { return std::tolower(c); });
         std::replace(name.begin(), name.end(), '-', '_');
         return name;
     }
 
-    std::string getReplicationSlotName(const std::string & postgres_database, const std::string & postgres_table)
+    std::string get_replication_slot_name(const std::string & postgres_database, const std::string & postgres_table)
     {
         std::string slot_name = fmt::format("{}_{}_ch_replication_slot", postgres_database, postgres_table);
-        slot_name = normalizeReplicationSlot(slot_name);
+        slot_name = normalize_replication_slot(slot_name);
         return slot_name;
     }
 
-    std::string createTablesNames(std::vector<std::string> tables_array) {
+    std::string create_tables_names(std::vector<std::string> tables_array) {
         std::ostringstream oss;
         for (size_t i = 0; i < tables_array.size(); ++i) {
             oss << tables_array[i];
@@ -58,7 +58,7 @@ namespace {
         return oss.str();
     }
 
-    std::string doubleQuoteString(const std::string& str) {
+    std::string double_quote_string(const std::string& str) {
         std::stringstream ss;
         ss << "\"";
         for (char c : str) {
@@ -73,7 +73,7 @@ namespace {
     }
 }
 
-LogicalReplicationHandler::LogicalReplicationHandler(
+logical_replication_handler::logical_replication_handler(
     const std::string &postgres_database_,
     const std::string &postgres_table_,
     const std::string &connection_dsn_,
@@ -83,109 +83,111 @@ LogicalReplicationHandler::LogicalReplicationHandler(
     const bool user_managed_slot_,
     const std::string user_snapshot_)
     : connection_dsn(connection_dsn_),
-      logger(file_name_),
+      current_logger(file_name_),
       tables_array(tables_array_),
-      tables_names(createTablesNames(tables_array_)),
-      replication_slot(getReplicationSlotName(postgres_database_, postgres_table_)),
-      publication_name(getPublicationName(postgres_database_, postgres_table_)),
+      database_name(postgres_database_),
+      tables_names(create_tables_names(tables_array_)),
+      replication_slot(get_replication_slot_name(postgres_database_, postgres_table_)),
+      publication_name(get_publication_name(postgres_database_, postgres_table_)),
       user_managed_slot(user_managed_slot_),
       user_snapshot(user_snapshot_),
       max_block_size(max_block_size_)
 {
     if (tables_names.empty()) {
-        throw Exception(ErrorCodes::BAD_ARGUMENTS, "Cannot have tables list at the same time");
+        throw exception(error_codes::BAD_ARGUMENTS, "Can not have tables list");
     }
 
-    checkReplicationSlot(replication_slot);
+    check_replication_slot(replication_slot);
 
-    logger.log(LogLevel::DEBUG, fmt::format(
+    current_logger.log(log_level::DEBUG, fmt::format(
                "Using replication slot {} and publication {}",
                replication_slot,
-               doubleQuoteString(publication_name)));
+               double_quote_string(publication_name)));
 }
 
-bool LogicalReplicationHandler::runConsumer() {
-    return getConsumer()->consume();
+bool logical_replication_handler::run_consumer() {
+    return get_consumer()->consume();
 }
 
-void LogicalReplicationHandler::startSynchronization() {
-    postgres::Connection replication_connection(connection_dsn, &logger, true);
-    pqxx::nontransaction tx(replication_connection.getRef());
-    createPublication(tx);
+void logical_replication_handler::start_synchronization() {
+    postgres::сonnection replication_connection(connection_dsn, &current_logger, true);
+    pqxx::nontransaction tx(replication_connection.get_ref());
+    create_publication(tx);
 
     std::string snapshot_name;
     std::string start_lsn;
-    auto tmp_connection = std::make_shared<postgres::Connection>(connection_dsn, &logger);
+    auto tmp_connection = std::make_shared<postgres::сonnection>(connection_dsn, &current_logger);
 
     auto initial_sync = [&]() {
-        logger.log(LogLevel::DEBUG, "Starting tables sync load");
+        current_logger.log(log_level::DEBUG, "Starting tables sync load");
 
         try
         {
             if (user_managed_slot)
             {
                 if (user_snapshot.empty())
-                    throw Exception(ErrorCodes::BAD_ARGUMENTS, "Using a user-defined replication slot must");
+                    throw exception(error_codes::BAD_ARGUMENTS, "User snapshot not have");
 
                 snapshot_name = user_snapshot;
             }
             else
             {
-                createReplicationSlot(tx, start_lsn, snapshot_name);
+                create_replication_slot(tx, start_lsn, snapshot_name);
             }
 
             for (std::string table_name : tables_array) {
-                loadFromSnapshot(*tmp_connection, snapshot_name, table_name);
+                load_from_snapshot(*tmp_connection, snapshot_name, table_name);
             }
         }
-        catch (Exception &e)
+        catch (exception &e)
         {
-            logger.log(LogLevel::ERROR, e.what());
+            current_logger.log(log_level::ERROR, e.what());
         }
     };
 
-    if (!hasReplicationSlot(tx, start_lsn)) {
+    if (!has_replication_slot(tx, start_lsn)) {
         initial_sync();
     } else {
-        dropReplicationSlot(tx);
+        drop_replication_slot(tx);
         initial_sync();
     }
 
     tx.commit();
 
-    consumer = std::make_shared<LogicalReplicationConsumer>(
+    consumer = std::make_shared<logical_replication_consumer>(
         std::move(tmp_connection),
+        database_name,
         replication_slot,
         publication_name,
         start_lsn,
         max_block_size,
-        &logger);
-    logger.log(LogLevel::DEBUG, "Consumer created");
+        &current_logger);
+    current_logger.log(log_level::DEBUG, "Consumer created");
 }
 
-LogicalReplicationHandler::ConsumerPtr LogicalReplicationHandler::getConsumer()
+logical_replication_handler::consumer_ptr logical_replication_handler::get_consumer()
 {
     if (!consumer)
-        throw Exception(ErrorCodes::LOGICAL_ERROR, "Consumer not initialized");
+        throw exception(error_codes::LOGICAL_ERROR, "Consumer not initialized");
 
     return consumer;
 }
 
-bool LogicalReplicationHandler::hasPublication(pqxx::nontransaction & tx)
+bool logical_replication_handler::has_publication(pqxx::nontransaction & tx)
 {
     std::string query_str = fmt::format("SELECT exists (SELECT 1 FROM pg_publication WHERE pubname = '{}')",
                                         publication_name);
     pqxx::result result{tx.exec(query_str)};
 
     if (result.empty())
-        throw Exception(ErrorCodes::LOGICAL_ERROR,
+        throw exception(error_codes::LOGICAL_ERROR,
             fmt::format("Publication does not exist: {}", publication_name));
 
     return result[0][0].as<std::string>() == "t";
 }
 
-void LogicalReplicationHandler::createPublication(pqxx::nontransaction &tx) {
-    auto publication_exists = hasPublication(tx);
+void logical_replication_handler::create_publication(pqxx::nontransaction &tx) {
+    auto publication_exists = has_publication(tx);
 
     if (!publication_exists) {
         if (tables_names.empty())
@@ -196,19 +198,19 @@ void LogicalReplicationHandler::createPublication(pqxx::nontransaction &tx) {
         try
         {
             tx.exec(query_str);
-            logger.log(LogLevel::DEBUG, fmt::format(
-                       "Created publication {} with tables list: {}", publication_name, tables_names));
+            current_logger.log(log_level::DEBUG, fmt::format(
+                       "Created publication {} with tables: {}", publication_name, tables_names));
         }
         catch (const std::exception& e)
         {
-            throw Exception(ErrorCodes::LOGICAL_ERROR, fmt::format("While creating pg_publication {}", e.what()));
+            throw exception(error_codes::LOGICAL_ERROR, fmt::format("While creating publication {}", e.what()));
         }
     } else {
-        logger.log(LogLevel::DEBUG, fmt::format("Using existing publication ({}) version", publication_name));
+        current_logger.log(log_level::DEBUG, fmt::format("Using publication {}", publication_name));
     }
 }
 
-bool LogicalReplicationHandler::hasReplicationSlot(pqxx::nontransaction & tx, std::string & start_lsn)
+bool logical_replication_handler::has_replication_slot(pqxx::nontransaction & tx, std::string & start_lsn)
 {
     std::string slot_name = replication_slot;
 
@@ -223,58 +225,57 @@ bool LogicalReplicationHandler::hasReplicationSlot(pqxx::nontransaction & tx, st
 
     start_lsn = result[0][2].as<std::string>();
 
-    logger.log(LogLevel::DEBUG, fmt::format(
-               "Replication slot {} already exists (active: {}). Restart lsn position: {}, confirmed flush lsn: {}",
-               slot_name, result[0][0].as<bool>(), result[0][1].as<std::string>(), start_lsn));
+    current_logger.log(log_level::DEBUG, fmt::format(
+               "Replication slot {} already exists.", slot_name));
     return true;
 }
 
-void LogicalReplicationHandler::createReplicationSlot(pqxx::nontransaction &tx,
+void logical_replication_handler::create_replication_slot(pqxx::nontransaction &tx,
                                                       std::string &start_lsn,
                                                       std::string &snapshot_name) {
     std::string query_str;
     std::string slot_name = replication_slot;
 
     query_str = fmt::format("CREATE_REPLICATION_SLOT {} LOGICAL pgoutput EXPORT_SNAPSHOT",
-                            doubleQuoteString(slot_name));
+                            double_quote_string(slot_name));
 
     try
     {
         pqxx::result result{tx.exec(query_str)};
         start_lsn = result[0][1].as<std::string>();
         snapshot_name = result[0][2].as<std::string>();
-        logger.log(LogLevel::INFO, fmt::format(
+        current_logger.log(log_level::INFO, fmt::format(
                        "Created replication slot: {}, start lsn: {}, snapshot: {}",
                        replication_slot, start_lsn, snapshot_name));
     }
     catch (std::exception &e)
     {
-        throw Exception(ErrorCodes::LOGICAL_ERROR, fmt::format(
+        throw exception(error_codes::LOGICAL_ERROR, fmt::format(
                             "While creating PostgreSQL replication slot {}: {}", slot_name, e.what()));
     }
 }
 
-void LogicalReplicationHandler::dropReplicationSlot(pqxx::nontransaction & tx)
+void logical_replication_handler::drop_replication_slot(pqxx::nontransaction & tx)
 {
     std::string slot_name = replication_slot;
 
     std::string query_str = fmt::format("SELECT pg_drop_replication_slot('{}')", slot_name);
 
     tx.exec(query_str);
-    logger.log(LogLevel::INFO, fmt::format("Dropped replication slot: {}", slot_name));
+    current_logger.log(log_level::INFO, fmt::format("Dropped replication slot: {}", slot_name));
 }
 
-void LogicalReplicationHandler::loadFromSnapshot(postgres::Connection &connection,
+void logical_replication_handler::load_from_snapshot(postgres::сonnection &connection,
                                                  std::string &snapshot_name,
                                                  const std::string &table_name) {
-    auto tx = std::make_shared<pqxx::ReplicationTransaction>(connection.getRef());
+    auto tx = std::make_shared<pqxx::replication_transaction>(connection.get_ref());
 
     std::string query_str = fmt::format("SET TRANSACTION SNAPSHOT '{}'", snapshot_name);
     tx->exec(query_str);
 
     query_str = fmt::format("SELECT * FROM ONLY {}", table_name);
 
-    logger.log(LogLevel::DEBUG, fmt::format("Loading PostgreSQL table {}", table_name));
+    current_logger.log(log_level::DEBUG, fmt::format("Loading PostgreSQL table {}", table_name));
 
     // Getting data from the database to start syncing
     pqxx::result result = tx->exec(query_str);

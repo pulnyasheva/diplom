@@ -2,24 +2,24 @@
 
 #include <stdexcept>
 
-enum class ErrorCodes {
+enum class error_codes {
     BAD_ARGUMENTS = 1,
     LOGICAL_ERROR = 2,
     NOT_FOUND = 3,
     INVALID_INPUT = 4
 };
 
-class Exception : public std::runtime_error {
+class exception : public std::runtime_error {
 public:
-    Exception(ErrorCodes code, const std::string &message);
+    exception(error_codes code, const std::string &message);
 
     int code() const;
 
-    void addContext(const std::string &context);
+    void add_context(const std::string &context);
 
     const char* what() const noexcept override;
 
 private:
-    ErrorCodes error_code;
+    error_codes error_code;
     std::string message;
 };
