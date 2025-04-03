@@ -45,7 +45,7 @@ void logical_replication_consumer::update_lsn()
     }
     catch (std::exception &e)
     {
-        current_logger->log(log_level::ERROR, fmt::format("Error for update lsn: {}", e.what()));
+        current_logger->log_to_file(log_level::ERROR, fmt::format("Error for update lsn: {}", e.what()));
     }
 }
 
@@ -55,7 +55,7 @@ std::string logical_replication_consumer::lsn(std::shared_ptr<pqxx::nontransacti
     pqxx::result result{tx->exec(query_str)};
 
     result_lsn = result[0][0].as<std::string>();
-    current_logger->log(log_level::DEBUG, fmt::format("LSN up to: {}", get_lsn(result_lsn)));
+    current_logger->log_to_file(log_level::DEBUG, fmt::format("LSN up to: {}", get_lsn(result_lsn)));
     is_committed = false;
     return result_lsn;
 }
@@ -135,24 +135,24 @@ bool logical_replication_consumer::consume()
                                        id_skip_table_name,
                                        id_table_to_column,
                                        old_value);
-                otterbrix_service.data_handler(type_operation, id_to_table_name[table_id_query], database_name,
-                                               get_primary_key(table_id_query), result,
-                                               id_table_to_column[table_id_query], old_value);
+                current_otterbrix_service.data_handler(type_operation, id_to_table_name[table_id_query], database_name,
+                                                       get_primary_key(table_id_query), result,
+                                                       id_table_to_column[table_id_query], old_value);
             }
             catch (const exception &e)
             {
-                current_logger->log(log_level::ERROR, fmt::format("Error during parsing: {}", e.what()));
+                current_logger->log_to_file(log_level::ERROR, fmt::format("Error during parsing: {}", e.what()));
             }
         }
     }
     catch (const exception &e)
     {
-        current_logger->log(log_level::ERROR, fmt::format("Exception thrown in consume", e.what()));
+        current_logger->log_to_file(log_level::ERROR, fmt::format("Exception thrown in consume", e.what()));
         return false;
     }
     catch (const pqxx::broken_connection &)
     {
-        current_logger->log(log_level::ERROR, "Connection was broken");
+        current_logger->log_to_file(log_level::ERROR, "Connection was broken");
         connection->try_refresh_connection();
         return false;
     }
@@ -160,30 +160,30 @@ bool logical_replication_consumer::consume()
     {
         std::string error_message = e.what();
         if (!error_message.find("out of relcache_callback_list slots"))
-            current_logger->log(log_level::ERROR, fmt::format("Exception caught: {}", error_message));
+            current_logger->log_to_file(log_level::ERROR, fmt::format("Exception caught: {}", error_message));
 
         connection->try_refresh_connection();
         return false;
     }
     catch (const pqxx::conversion_error & e)
     {
-        current_logger->log(log_level::ERROR, fmt::format("Conversion error: {}", e.what()));
+        current_logger->log_to_file(log_level::ERROR, fmt::format("Conversion error: {}", e.what()));
         return false;
     }
     catch (const pqxx::internal_error & e)
     {
-        current_logger->log(log_level::ERROR, fmt::format("PostgreSQL library internal error: {}", e.what()));
+        current_logger->log_to_file(log_level::ERROR, fmt::format("PostgreSQL library internal error: {}", e.what()));
         return false;
     }
     catch (const std::exception & e)
     {
-        current_logger->log(log_level::ERROR, e.what());
+        current_logger->log_to_file(log_level::ERROR, e.what());
         return false;
     }
 
     if (is_committed)
     {
-        current_logger->log(log_level::DEBUG, "Update lsn");
+        current_logger->log_to_file(log_level::DEBUG, "Update lsn");
         update_lsn();
     }
 

@@ -58,6 +58,7 @@ int main() {
         "students",
         conninfo,
         "log.txt",
+        "",
         tables,
         100);
 

@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 20)
 find_library(PQXX_LIB pqxx)
 find_library(PQ_LIB pq)
 find_package(Boost REQUIRED)
+find_package(CURL REQUIRED)
 find_package(SOCI REQUIRED)
 find_package(PostgreSQL REQUIRED)
 find_package(Qt5 REQUIRED COMPONENTS Core Sql)
@@ -41,4 +42,4 @@ add_executable(diplom сonnection.cpp
 
 add_subdirectory(fmt)
 
-target_link_libraries(diplom ${PQXX_LIB} ${PQ_LIB} fmt soci_core soci_postgresql ${Boost_LIBRARIES} ${PostgreSQL_LIBRARIES} Qt5::Core Qt5::Sql)
+target_link_libraries(diplom ${PQXX_LIB} ${PQ_LIB} fmt soci_core soci_postgresql ${CURL_LIBRARIES} ${Boost_LIBRARIES} ${PostgreSQL_LIBRARIES} Qt5::Core Qt5::Sql)

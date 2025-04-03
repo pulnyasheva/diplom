@@ -2,21 +2,27 @@
 #include <iomanip>
 #include <ctime>
 #include <iostream>
+#include <curl/curl.h>
 
 #include <logger.h>
 
 #include "fmt/format.h"
 
-logger::logger(const std::string& file_name_) : file_name(file_name_){
-    log_file.open(file_name, std::ios::app);
-    if (!log_file.is_open()) {
-        std::cerr << "Failed to open log file: " << file_name << std::endl;
+logger::logger(const std::string &file_name_, const std::string &url_)
+    : file_name(file_name_),
+      url(url_) {
+    if (!file_name.empty()) {
+        log_file.open(file_name, std::ios::app);
+        if (!log_file.is_open()) {
+            std::cerr << "Failed to open log file: " << file_name << std::endl;
+        }
     }
 }
 
 logger::logger(logger&& other) noexcept :
     log_file(std::move(other.log_file)),
-    file_name(std::move(other.file_name)) {}
+    file_name(std::move(other.file_name)),
+    url(std::move(other.url)) {}
 
 logger::~logger() {
     if (log_file.is_open()) {
@@ -24,10 +30,32 @@ logger::~logger() {
     }
 }
 
-void logger::log(log_level level, const std::string& message) {
+void logger::log_to_file(log_level level, const std::string& message) {
     std::lock_guard guard(log_mutex);
     if (log_file.is_open()) {
         log_file << get_current_time() << " [" << log_level_to_string(level) << "] " << message << std::endl;
+    }
+}
+
+void logger::log_to_url(log_level level, const std::string& message) {
+    std::lock_guard guard(log_mutex);
+
+    std::ostringstream oss;
+    oss << get_current_time() << " [" << log_level_to_string(level) << "] " << message;
+
+    CURL* curl = curl_easy_init();
+    if (curl) {
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, oss.str().c_str());
+
+        CURLcode res = curl_easy_perform(curl);
+        if (res != CURLE_OK) {
+            std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
+        }
+
+        curl_easy_cleanup(curl);
+    } else {
+        std::cerr << "Failed to initialize CURL" << std::endl;
     }
 }
 

@@ -78,12 +78,13 @@ logical_replication_handler::logical_replication_handler(
     const std::string &postgres_table_,
     const std::string &connection_dsn_,
     const std::string &file_name_,
+    const std::string &url_log_,
     std::vector<std::string> &tables_array_,
     size_t max_block_size_,
     const bool user_managed_slot_,
     const std::string user_snapshot_)
     : connection_dsn(connection_dsn_),
-      current_logger(file_name_),
+      current_logger(file_name_, url_log_),
       tables_array(tables_array_),
       database_name(postgres_database_),
       tables_names(create_tables_names(tables_array_)),
@@ -99,7 +100,7 @@ logical_replication_handler::logical_replication_handler(
 
     check_replication_slot(replication_slot);
 
-    current_logger.log(log_level::DEBUG, fmt::format(
+    current_logger.log_to_file(log_level::DEBUG, fmt::format(
                "Using replication slot {} and publication {}",
                replication_slot,
                double_quote_string(publication_name)));
@@ -119,7 +120,7 @@ void logical_replication_handler::start_synchronization() {
     auto tmp_connection = std::make_shared<postgres::сonnection>(connection_dsn, &current_logger);
 
     auto initial_sync = [&]() {
-        current_logger.log(log_level::DEBUG, "Starting tables sync load");
+        current_logger.log_to_file(log_level::DEBUG, "Starting tables sync load");
 
         try
         {
@@ -141,7 +142,7 @@ void logical_replication_handler::start_synchronization() {
         }
         catch (exception &e)
         {
-            current_logger.log(log_level::ERROR, e.what());
+            current_logger.log_to_file(log_level::ERROR, e.what());
         }
     };
 
@@ -162,7 +163,7 @@ void logical_replication_handler::start_synchronization() {
         start_lsn,
         max_block_size,
         &current_logger);
-    current_logger.log(log_level::DEBUG, "Consumer created");
+    current_logger.log_to_file(log_level::DEBUG, "Consumer created");
 }
 
 logical_replication_handler::consumer_ptr logical_replication_handler::get_consumer()
@@ -198,7 +199,7 @@ void logical_replication_handler::create_publication(pqxx::nontransaction &tx) {
         try
         {
             tx.exec(query_str);
-            current_logger.log(log_level::DEBUG, fmt::format(
+            current_logger.log_to_file(log_level::DEBUG, fmt::format(
                        "Created publication {} with tables: {}", publication_name, tables_names));
         }
         catch (const std::exception& e)
@@ -206,7 +207,7 @@ void logical_replication_handler::create_publication(pqxx::nontransaction &tx) {
             throw exception(error_codes::LOGICAL_ERROR, fmt::format("While creating publication {}", e.what()));
         }
     } else {
-        current_logger.log(log_level::DEBUG, fmt::format("Using publication {}", publication_name));
+        current_logger.log_to_file(log_level::DEBUG, fmt::format("Using publication {}", publication_name));
     }
 }
 
@@ -225,7 +226,7 @@ bool logical_replication_handler::has_replication_slot(pqxx::nontransaction & tx
 
     start_lsn = result[0][2].as<std::string>();
 
-    current_logger.log(log_level::DEBUG, fmt::format(
+    current_logger.log_to_file(log_level::DEBUG, fmt::format(
                "Replication slot {} already exists.", slot_name));
     return true;
 }
@@ -244,7 +245,7 @@ void logical_replication_handler::create_replication_slot(pqxx::nontransaction &
         pqxx::result result{tx.exec(query_str)};
         start_lsn = result[0][1].as<std::string>();
         snapshot_name = result[0][2].as<std::string>();
-        current_logger.log(log_level::INFO, fmt::format(
+        current_logger.log_to_file(log_level::INFO, fmt::format(
                        "Created replication slot: {}, start lsn: {}, snapshot: {}",
                        replication_slot, start_lsn, snapshot_name));
     }
@@ -262,7 +263,7 @@ void logical_replication_handler::drop_replication_slot(pqxx::nontransaction & t
     std::string query_str = fmt::format("SELECT pg_drop_replication_slot('{}')", slot_name);
 
     tx.exec(query_str);
-    current_logger.log(log_level::INFO, fmt::format("Dropped replication slot: {}", slot_name));
+    current_logger.log_to_file(log_level::INFO, fmt::format("Dropped replication slot: {}", slot_name));
 }
 
 void logical_replication_handler::load_from_snapshot(postgres::сonnection &connection,
@@ -275,7 +276,7 @@ void logical_replication_handler::load_from_snapshot(postgres::сonnection &conn
 
     query_str = fmt::format("SELECT * FROM ONLY {}", table_name);
 
-    current_logger.log(log_level::DEBUG, fmt::format("Loading PostgreSQL table {}", table_name));
+    current_logger.log_to_file(log_level::DEBUG, fmt::format("Loading PostgreSQL table {}", table_name));
 
     // Getting data from the database to start syncing
     pqxx::result result = tx->exec(query_str);

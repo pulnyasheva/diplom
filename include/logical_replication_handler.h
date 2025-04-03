@@ -25,6 +25,7 @@ public:
             const std::string & postgres_table_,
             const std::string & connection_dsn_,
             const std::string & file_name_,
+            const std::string &url_log_,
             std::vector<std::string> & tables_array_,
             size_t max_block_size_,
             bool user_managed_slot = false,
