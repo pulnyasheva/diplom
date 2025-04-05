@@ -8,6 +8,7 @@
 #include <memory_resource>
 #include <optional>
 #include <vector>
+#include <pqxx/pqxx>
 
 #include <DocumentTypes.h>
 
@@ -25,9 +26,16 @@ namespace tsl {
         components::document::document_ptr document;
     };
 
-    doc_result postgres_to_docs(const int16_t &num_columns,
-                               const std::vector<std::pair<std::string, int32_t>>& columns,
-                               const std::vector<std::string> &result);
+    struct docs_result {
+        std::vector<column_info> schema;
+        std::vector<components::document::document_ptr> document;
+    };
+
+    doc_result logical_replication_to_docs(std::pmr::memory_resource *res, int16_t num_columns,
+                                           const std::vector<std::pair<std::string, int32_t> > &columns,
+                                           const std::vector<std::string> &result);
+
+    docs_result postgres_to_docs(std::pmr::memory_resource *res, const pqxx::result &result);
 
     std::optional<std::vector<column_info>> merge_schemas(const std::vector<std::vector<column_info>>& schemas);
 }

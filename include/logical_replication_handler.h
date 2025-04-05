@@ -65,4 +65,6 @@ private:
     size_t max_block_size;
 
     consumer_ptr consumer;
+
+    otterbrix_service current_otterbrix_service;
 };

@@ -3,6 +3,7 @@
 #include <memory_resource>
 #include <set>
 #include <vector>
+#include <pqxx/pqxx>
 
 #include <components/expressions/msgpack.hpp>
 
@@ -22,6 +23,10 @@ public:
                       const std::vector<std::string> &result,
                       const std::vector<std::pair<std::string, int32_t>> &columns,
                       const std::unordered_map<int32_t, std::string> &old_value);
+
+    void data_handler(pqxx::result &result,
+                      const std::string &table_name,
+                      const std::string &database_name);
 private:
     std::pair<expressions::expression_ptr, logical_plan::parameter_node_ptr> make_expression_match(
         std::pmr::memory_resource* resource,

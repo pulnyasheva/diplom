@@ -24,13 +24,13 @@ void otterbrix_service::data_handler(postgre_sql_type_operation &type_operation,
     auto resource = std::pmr::synchronized_pool_resource();
     switch (type_operation) {
         case postgre_sql_type_operation::INSERT: {
-            tsl::doc_result doc_result = tsl::postgres_to_docs(columns.size(), columns, result);
+            tsl::doc_result doc_result = tsl::logical_replication_to_docs(&resource, columns.size(), columns, result);
             auto insert_node = logical_plan::make_node_insert(std::pmr::get_default_resource(),
                                                               {database_name, table_name},
                                                               doc_result.document);
         }
         case postgre_sql_type_operation::UPDATE: {
-            tsl::doc_result doc_result = tsl::postgres_to_docs(columns.size(), columns, result);
+            tsl::doc_result doc_result = tsl::logical_replication_to_docs(&resource, columns.size(), columns, result);
             std::pair<expressions::expression_ptr, logical_plan::parameter_node_ptr> expression;
             if (old_value.empty()) {
                 expression = make_expression_match(&resource, old_value, columns);
@@ -54,6 +54,19 @@ void otterbrix_service::data_handler(postgre_sql_type_operation &type_operation,
                                                             std::move(expression.first));
             auto node_delete = logical_plan::make_node_delete(&resource,  {database_name, table_name}, &node_match);
         }
+    }
+}
+
+void otterbrix_service::data_handler(pqxx::result &result,
+                                     const std::string &table_name,
+                                     const std::string &database_name) {
+    auto resource = std::pmr::synchronized_pool_resource();
+    tsl::docs_result docs_result = tsl::postgres_to_docs(&resource, result);
+
+    for (auto doc: docs_result) {
+        auto insert_node = logical_plan::make_node_insert(std::pmr::get_default_resource(),
+                                                          {database_name, table_name},
+                                                          doc.document);
     }
 }
 

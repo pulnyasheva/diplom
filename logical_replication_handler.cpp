@@ -281,12 +281,5 @@ void logical_replication_handler::load_from_snapshot(postgres::сonnection &conn
     // Getting data from the database to start syncing
     pqxx::result result = tx->exec(query_str);
 
-    for (const auto& row : result)
-    {
-        for (const auto& field : row)
-        {
-            std::cout << field.c_str() << " ";
-        }
-        std::cout << std::endl;
-    }
+    current_otterbrix_service.data_handler(result, table_name, database_name);
 }
