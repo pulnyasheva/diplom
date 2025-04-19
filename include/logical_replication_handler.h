@@ -22,7 +22,7 @@ public:
 
     logical_replication_handler(
             const std::string & postgres_database_,
-            const std::string & postgres_table_,
+            const std::string & postgres_name_,
             const std::string & connection_dsn_,
             const std::string & file_name_,
             const std::string &url_log_,

@@ -7,7 +7,7 @@
 #include <postgres_types.h>
 
 using logical_replication_to_otterbrix_doc = std::function<void(components::document::document_ptr,
-                                                                std::vector<std::string> &)>;
+                                                                const std::vector<std::string> &)>;
 using logical_replication_to_otterbrix_doc_impl =
     std::function<void(
         components::document::document_ptr,
@@ -482,7 +482,7 @@ namespace tsl {
             throw std::runtime_error(oss.str());
         }
 
-        std::pmr::vector< components::document::document_ptr> docs(res);
+        std::vector<components::document::document_ptr> docs;
         docs.reserve(nrows);
 
         for (const auto &row: result) {
@@ -511,7 +511,7 @@ namespace tsl {
 
             auto wrapper = [translator = translator.setter, index = i, name = columns[i].first](
                                components::document::document_ptr doc,
-                               std::vector<std::string> &result) -> void { translator(doc, name, result, index); };
+                               const std::vector<std::string> &result) -> void { translator(doc, name, result, index); };
             postgres_row_to_doc_translators.push_back(std::move(wrapper));
         }
 

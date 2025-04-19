@@ -15,7 +15,7 @@ CREATE TABLE students
     email       VARCHAR(100) UNIQUE NOT NULL
 );
 
-INSERT INTO students (first_name, last_name, age, email, birth_date, status, passport, blob)
+INSERT INTO students (first_name, last_name, age, email)
 VALUES
     ('John', 'Doe', 20, 'john.doe@example.com'),
     ('Jane', 'Smith', 22, 'jane.smith@example.com'),

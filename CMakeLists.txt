@@ -10,6 +10,7 @@ find_package(CURL REQUIRED)
 find_package(SOCI REQUIRED)
 find_package(PostgreSQL REQUIRED)
 find_package(Qt5 REQUIRED COMPONENTS Core Sql)
+find_package(otterbrix REQUIRED)
 
 include_directories(${LIBPQXX_INCLUDE_DIRS} include ${SOCI_INCLUDE_DIRS} ${PostgreSQL_INCLUDE_DIRS})
 
@@ -42,4 +43,4 @@ add_executable(diplom сonnection.cpp
 
 add_subdirectory(fmt)
 
-target_link_libraries(diplom ${PQXX_LIB} ${PQ_LIB} fmt soci_core soci_postgresql ${CURL_LIBRARIES} ${Boost_LIBRARIES} ${PostgreSQL_LIBRARIES} Qt5::Core Qt5::Sql)
+target_link_libraries(diplom PUBLIC otterbrix::otterbrix ${PQXX_LIB} ${PQ_LIB} fmt soci_core soci_postgresql ${CURL_LIBRARIES} ${Boost_LIBRARIES} ${PostgreSQL_LIBRARIES} Qt5::Core Qt5::Sql)

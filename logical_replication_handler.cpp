@@ -75,7 +75,7 @@ namespace {
 
 logical_replication_handler::logical_replication_handler(
     const std::string &postgres_database_,
-    const std::string &postgres_table_,
+    const std::string &postgres_name_,
     const std::string &connection_dsn_,
     const std::string &file_name_,
     const std::string &url_log_,
@@ -88,8 +88,8 @@ logical_replication_handler::logical_replication_handler(
       tables_array(tables_array_),
       database_name(postgres_database_),
       tables_names(create_tables_names(tables_array_)),
-      replication_slot(get_replication_slot_name(postgres_database_, postgres_table_)),
-      publication_name(get_publication_name(postgres_database_, postgres_table_)),
+      replication_slot(get_replication_slot_name(postgres_database_, postgres_name_)),
+      publication_name(get_publication_name(postgres_database_, postgres_name_)),
       user_managed_slot(user_managed_slot_),
       user_snapshot(user_snapshot_),
       max_block_size(max_block_size_)
@@ -149,7 +149,9 @@ void logical_replication_handler::start_synchronization() {
     if (!has_replication_slot(tx, start_lsn)) {
         initial_sync();
     } else {
-        drop_replication_slot(tx);
+        if (!user_managed_slot) {
+            drop_replication_slot(tx);
+        }
         initial_sync();
     }
 

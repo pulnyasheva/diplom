@@ -9,9 +9,8 @@
 #include <otterbrix_service.h>
 #include <otterbrix_converter.h>
 
-using namespace components;
 using expressions::compare_type;
-using key = components::expressions::key_t;
+using key = expressions::key_t;
 using id_par = core::parameter_id_t;
 
 void otterbrix_service::data_handler(postgre_sql_type_operation &type_operation,
@@ -43,7 +42,7 @@ void otterbrix_service::data_handler(postgre_sql_type_operation &type_operation,
                                                             std::move(expression.first));
             auto node_update = logical_plan::make_node_update_one(&resource,
                                                                   {database_name, table_name},
-                                                                  &node_match,
+                                                                  node_match,
                                                                   doc_result.document);
         }
         case postgre_sql_type_operation::DELETE: {
@@ -52,7 +51,9 @@ void otterbrix_service::data_handler(postgre_sql_type_operation &type_operation,
             auto node_match = logical_plan::make_node_match(&resource,
                                                             {database_name, table_name},
                                                             std::move(expression.first));
-            auto node_delete = logical_plan::make_node_delete(&resource,  {database_name, table_name}, &node_match);
+            auto node_delete = logical_plan::make_node_delete_one(&resource,
+                                                              {database_name, table_name},
+                                                              node_match);
         }
     }
 }
@@ -83,27 +84,27 @@ std::pair<expressions::expression_ptr, logical_plan::parameter_node_ptr> otterbr
 
     size_t primary_key_size = primary_key.size();
     if (primary_key_size == 1) {
-        auto params = logical_plan::make_parameter_node(&resource);
-        params->add_parameter(id_par{1}, new_value(primary_key[0].second));
-        auto expr = components::expressions::make_compare_expression(&resource,
+        auto params = logical_plan::make_parameter_node(resource);
+        params->add_parameter<std::string>(id_par{1}, primary_key[0].second);
+        auto expr = components::expressions::make_compare_expression(resource,
                                                                      compare_type::eq,
                                                                      key{columns[primary_key[0].first].first},
                                                                      id_par{1});
         return {expr, params};
     }
 
-    int32_t index = 0;
-    auto expr_result = components::expressions::make_compare_union_expression(&resource, compare_type::union_and);
+    unsigned short index = 0;
+    auto expr_result = components::expressions::make_compare_union_expression(resource, compare_type::union_and);
     auto expr = expr_result;
-    auto params = logical_plan::make_parameter_node(&resource);
+    auto params = logical_plan::make_parameter_node(resource);
 
     while (primary_key_size > 2) {
-        auto expr_union = components::expressions::make_compare_union_expression(&resource, compare_type::union_and);
-        auto expr_eq = components::expressions::make_compare_expression(&resource,
+        auto expr_union = components::expressions::make_compare_union_expression(resource, compare_type::union_and);
+        auto expr_eq = components::expressions::make_compare_expression(resource,
                                                                         compare_type::eq,
                                                                         key{columns[primary_key[index].first].first},
-                                                                        id_par{index + 1});
-        params->add_parameter(id_par{index + 1}, new_value(primary_key[index].second));
+                                                                        id_par{static_cast<unsigned short>(index + 1)});
+        params->add_parameter(id_par{static_cast<unsigned short>(index + 1)}, primary_key[index].second);
         expr->append_child(expr_union);
         expr->append_child(expr_eq);
         expr = expr_union;
@@ -111,16 +112,16 @@ std::pair<expressions::expression_ptr, logical_plan::parameter_node_ptr> otterbr
         primary_key_size -= 1;
     }
 
-    auto expr_eq_left = components::expressions::make_compare_expression(&resource,
+    auto expr_eq_left = components::expressions::make_compare_expression(resource,
                                                                          compare_type::eq,
                                                                          key{columns[primary_key[index].first].first},
-                                                                         id_par{index + 1});
-    params->add_parameter(id_par{index + 1}, new_value(primary_key[index].second));
-    auto expr_eq_right = components::expressions::make_compare_expression(&resource,
+                                                                         id_par{static_cast<unsigned short>(index + 1)});
+    params->add_parameter(id_par{static_cast<unsigned short>(index + 1)}, primary_key[index].second);
+    auto expr_eq_right = components::expressions::make_compare_expression(resource,
                                                                           compare_type::eq,
                                                                           key{columns[primary_key[index + 1].first].first},
-                                                                          id_par{index + 2});
-    params->add_parameter(id_par{index + 2}, new_value(primary_key[index + 1].second));
+                                                                          id_par{static_cast<unsigned short>(index + 2)});
+    params->add_parameter(id_par{static_cast<unsigned short>(index + 2)}, primary_key[index + 1].second);
     expr->append_child(expr_eq_left);
     expr->append_child(expr_eq_right);
 
@@ -134,9 +135,9 @@ std::pair<expressions::expression_ptr, logical_plan::parameter_node_ptr> otterbr
     const std::vector<std::pair<std::string, int32_t>> &columns) {
     size_t primary_key_size = primary_key.size();
     if (primary_key_size == 1) {
-        auto params = logical_plan::make_parameter_node(&resource);
-        params->add_parameter(id_par{1}, new_value(result[primary_key[0]]));
-        auto expr = components::expressions::make_compare_expression(&resource,
+        auto params = logical_plan::make_parameter_node(resource);
+        params->add_parameter(id_par{1}, result[primary_key[0]]);
+        auto expr = components::expressions::make_compare_expression(resource,
                                                                      compare_type::eq,
                                                                      key{columns[primary_key[0]].first},
                                                                      id_par{1});
@@ -144,17 +145,17 @@ std::pair<expressions::expression_ptr, logical_plan::parameter_node_ptr> otterbr
     }
 
     int32_t index = 0;
-    auto expr_result = components::expressions::make_compare_union_expression(&resource, compare_type::union_and);
+    auto expr_result = components::expressions::make_compare_union_expression(resource, compare_type::union_and);
     auto expr = expr_result;
-    auto params = logical_plan::make_parameter_node(&resource);
+    auto params = logical_plan::make_parameter_node(resource);
 
     while (primary_key_size > 2) {
-        auto expr_union = components::expressions::make_compare_union_expression(&resource, compare_type::union_and);
-        auto expr_eq = components::expressions::make_compare_expression(&resource,
+        auto expr_union = components::expressions::make_compare_union_expression(resource, compare_type::union_and);
+        auto expr_eq = components::expressions::make_compare_expression(resource,
                                                                         compare_type::eq,
                                                                         key{columns[primary_key[index]].first},
-                                                                        id_par{index + 1});
-        params->add_parameter(id_par{index + 1}, new_value(result[primary_key[index]]));
+                                                                        id_par{static_cast<unsigned short>(index + 1)});
+        params->add_parameter(id_par{static_cast<unsigned short>(index + 1)}, result[primary_key[index]]);
         expr->append_child(expr_union);
         expr->append_child(expr_eq);
         expr = expr_union;
@@ -162,16 +163,16 @@ std::pair<expressions::expression_ptr, logical_plan::parameter_node_ptr> otterbr
         primary_key_size -= 1;
     }
 
-    auto expr_eq_left = components::expressions::make_compare_expression(&resource,
+    auto expr_eq_left = components::expressions::make_compare_expression(resource,
                                                                          compare_type::eq,
                                                                          key{columns[primary_key[index]].first},
-                                                                         id_par{index + 1});
-    params->add_parameter(id_par{index + 1}, new_value(result[primary_key[index]]));
-    auto expr_eq_right = components::expressions::make_compare_expression(&resource,
+                                                                         id_par{static_cast<unsigned short>(index + 1)});
+    params->add_parameter(id_par{static_cast<unsigned short>(index + 1)}, result[primary_key[index]]);
+    auto expr_eq_right = components::expressions::make_compare_expression(resource,
                                                                           compare_type::eq,
                                                                           key{columns[primary_key[index + 1]].first},
-                                                                          id_par{index + 2});
-    params->add_parameter(id_par{index + 2}, new_value(result[primary_key[index + 1]]));
+                                                                          id_par{static_cast<unsigned short>(index + 2)});
+    params->add_parameter(id_par{static_cast<unsigned short>(index + 2)}, result[primary_key[index + 1]]);
     expr->append_child(expr_eq_left);
     expr->append_child(expr_eq_right);
 

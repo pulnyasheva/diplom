@@ -74,7 +74,7 @@ namespace postgres
     void сonnection::connect()
     {
         if (!connection || !connection->is_open())
-            refresh_connection();
+            try_refresh_connection();
     }
 
 }

@@ -5,12 +5,9 @@
 #include <vector>
 #include <pqxx/pqxx>
 
-#include <components/expressions/msgpack.hpp>
-
 #include <postgres_types.h>
 
-using namespace components;
-using expressions::compare_type;
+using components::expressions::compare_type;
 using key = components::expressions::key_t;
 using id_par = core::parameter_id_t;
 
@@ -28,13 +25,15 @@ public:
                       const std::string &table_name,
                       const std::string &database_name);
 private:
-    std::pair<expressions::expression_ptr, logical_plan::parameter_node_ptr> make_expression_match(
+    std::pair<components::expressions::expression_ptr,
+    components::logical_plan::parameter_node_ptr> make_expression_match(
         std::pmr::memory_resource* resource,
         const std::vector<int32_t> &primary_key,
         const std::vector<std::string> &result,
         const std::vector<std::pair<std::string, int32_t>> &columns);
 
-    std::pair<expressions::expression_ptr, logical_plan::parameter_node_ptr> make_expression_match(
+    std::pair<components::expressions::expression_ptr,
+    components::logical_plan::parameter_node_ptr> make_expression_match(
     std::pmr::memory_resource* resource,
     const std::unordered_map<int32_t, std::string> &old_value,
     const std::vector<std::pair<std::string, int32_t>> &columns);

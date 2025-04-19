@@ -80,7 +80,7 @@ int64_t logical_replication_parser::parse_int64(const char * message, size_t & p
     if (size < pos + 16) {
         throw exception(error_codes::LOGICAL_ERROR, "Message small from parse int64");
     }
-    int64_t result = hex_n_char_to_t<uint64_t>(message, pos, 8);
+    int64_t result = hex_n_char_to_t<int64_t>(message, pos, 8);
     pos += 16;
     return result;
 }

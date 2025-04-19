@@ -10,25 +10,26 @@
 #include <vector>
 #include <pqxx/pqxx>
 
-#include <DocumentTypes.h>
+#include <components/document/document.hpp>
+#include <document_types.h>
 
 using namespace components::document;
 using namespace components;
 
 namespace tsl {
     struct column_info {
-        DocumentTypes type;
+        document_types type;
         std::string name;
     };
 
     struct doc_result {
         std::vector<column_info> schema;
-        components::document::document_ptr document;
+        document_ptr document;
     };
 
     struct docs_result {
         std::vector<column_info> schema;
-        std::vector<components::document::document_ptr> document;
+        std::vector<document_ptr> document;
     };
 
     doc_result logical_replication_to_docs(std::pmr::memory_resource *res, int16_t num_columns,
