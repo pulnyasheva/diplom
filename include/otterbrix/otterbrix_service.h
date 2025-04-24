@@ -1,19 +1,24 @@
 #pragma once
 
 #include <memory_resource>
-#include <set>
 #include <vector>
 #include <pqxx/pqxx>
+#include <spdlog/spdlog.h>
 
-#include <postgres_types.h>
+#include <postgres/postgres_types.h>
 
-using components::expressions::compare_type;
+#include <components/expressions/key.hpp>
+#include <components/logical_plan/param_storage.hpp>
+#include <components/expressions/forward.hpp>
+
 using key = components::expressions::key_t;
 using id_par = core::parameter_id_t;
 
 class otterbrix_service {
 public:
-    void data_handler(postgre_sql_type_operation &type_operation,
+    std::shared_ptr<spdlog::logger> underlying_logger;
+
+    void data_handler(postgre_sql_type_operation type_operation,
                       const std::string &table_name,
                       const std::string &database_name,
                       const std::vector<int32_t> &primary_key,

@@ -3,15 +3,14 @@
 #undef DAY
 #undef SECOND
 
-#include <exception>
-#include <iostream>
 #include <memory_resource>
 #include <optional>
 #include <vector>
 #include <pqxx/pqxx>
 
+#include <otterbrix/document_types.h>
+
 #include <components/document/document.hpp>
-#include <document_types.h>
 
 using namespace components::document;
 using namespace components;

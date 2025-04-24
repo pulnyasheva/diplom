@@ -3,44 +3,41 @@ project(diplom)
 
 set(CMAKE_CXX_STANDARD 20)
 
-find_library(PQXX_LIB pqxx)
-find_library(PQ_LIB pq)
+find_package(libpqxx REQUIRED)
 find_package(Boost REQUIRED)
 find_package(CURL REQUIRED)
-find_package(SOCI REQUIRED)
-find_package(PostgreSQL REQUIRED)
-find_package(Qt5 REQUIRED COMPONENTS Core Sql)
 find_package(otterbrix REQUIRED)
+find_package(fmt REQUIRED)
+find_package(spdlog REQUIRED)
 
-include_directories(${LIBPQXX_INCLUDE_DIRS} include ${SOCI_INCLUDE_DIRS} ${PostgreSQL_INCLUDE_DIRS})
+include_directories(include)
 
-add_executable(diplom сonnection.cpp
-        include/Logger.h
-        Logger.cpp
-        include/logical_replication_handler.h
-        include/сonnection.h
+add_executable(diplom postgres/сonnection.cpp
+        include/common/logger.h
+        common/logger.cpp
+        include/logical_replication/logical_replication_handler.h
+        include/postgres/сonnection.h
         example.cpp
-        logical_replication_handler.cpp
-        include/logical_replication_consumer.h
-        logical_replication_consumer.cpp
-        include/Exception.h
-        Exception.cpp
-        include/Scheduler.h
-        Scheduler.cpp
-        include/logical_replication_parser.h
-        logical_replication_parser.cpp
+        logical_replication/logical_replication_handler.cpp
+        include/logical_replication/logical_replication_consumer.h
+        logical_replication/logical_replication_consumer.cpp
+        include/common/exception.h
+        common/exception.cpp
+        include/common/scheduler.h
+        common/scheduler.cpp
+        include/logical_replication/logical_replication_parser.h
+        logical_replication/logical_replication_parser.cpp
         test.cpp
-        include/otterbrix_converter.h
-        otterbrix_converter.cpp
-        include/postgres_types.h
-        include/postgres_types.h
-        include/otterbrix_service.h
-        otterbrix_service.cpp
-        include/postgres_settings.h
-        postgres_settings.cpp
-        include/document_types.h
+        include/otterbrix/otterbrix_converter.h
+        otterbrix/otterbrix_converter.cpp
+        include/postgres/postgres_types.h
+        include/postgres/postgres_types.h
+        include/otterbrix/otterbrix_service.h
+        otterbrix/otterbrix_service.cpp
+        include/postgres/postgres_settings.h
+        postgres/postgres_settings.cpp
+        include/otterbrix/document_types.h
+        main.cpp
 )
 
-add_subdirectory(fmt)
-
-target_link_libraries(diplom PUBLIC otterbrix::otterbrix ${PQXX_LIB} ${PQ_LIB} fmt soci_core soci_postgresql ${CURL_LIBRARIES} ${Boost_LIBRARIES} ${PostgreSQL_LIBRARIES} Qt5::Core Qt5::Sql)
+target_link_libraries(diplom PUBLIC libpqxx::pqxx fmt::fmt otterbrix::otterbrix CURL::libcurl spdlog::spdlog)

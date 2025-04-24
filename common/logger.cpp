@@ -3,10 +3,9 @@
 #include <ctime>
 #include <iostream>
 #include <curl/curl.h>
-
-#include <logger.h>
-
 #include "fmt/format.h"
+
+#include <common/logger.h>
 
 logger::logger(const std::string &file_name_, const std::string &url_)
     : file_name(file_name_),

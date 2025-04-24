@@ -1,11 +1,10 @@
+#include <boost/mpl/placeholders.hpp>
 #include <fmt/format.h>
-#include <pqxx/transaction_base.hxx>
 #include <iostream>
-#include <unordered_set>
 
-#include <logical_replication_handler.h>
-#include <сonnection.h>
-#include <exception.h>
+#include <logical_replication/logical_replication_handler.h>
+#include <postgres/сonnection.h>
+#include <common/exception.h>
 
 namespace {
     std::string get_publication_name(const std::string & postgres_database, const std::string & postgres_table)
@@ -158,6 +157,7 @@ void logical_replication_handler::start_synchronization() {
     tx.commit();
 
     consumer = std::make_shared<logical_replication_consumer>(
+        connection_dsn,
         std::move(tmp_connection),
         database_name,
         replication_slot,

@@ -4,7 +4,7 @@
 #include <pqxx/pqxx>
 #include <boost/noncopyable.hpp>
 
-#include <logger.h>
+#include <common/logger.h>
 
 namespace pqxx
 {

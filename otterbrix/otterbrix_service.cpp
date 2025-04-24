@@ -1,3 +1,9 @@
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include <actor-zeta/base/address.hpp>
+
+#include <otterbrix/otterbrix_service.h>
+#include <otterbrix/otterbrix_converter.h>
+
 #include <components/expressions/compare_expression.hpp>
 #include <components/logical_plan/node.hpp>
 #include <components/logical_plan/param_storage.hpp>
@@ -5,15 +11,17 @@
 #include <components/logical_plan/node_delete.hpp>
 #include <components/logical_plan/node_insert.hpp>
 #include <components/logical_plan/node_update.hpp>
-
-#include <otterbrix_service.h>
-#include <otterbrix_converter.h>
+#include <components/log/log.hpp>
+#include <integration/cpp/wrapper_dispatcher.hpp>
+#include <components/session/session.hpp>
+#include <services/wal/forward.hpp>
+#include <services/wal/wal.hpp>
 
 using expressions::compare_type;
 using key = expressions::key_t;
 using id_par = core::parameter_id_t;
 
-void otterbrix_service::data_handler(postgre_sql_type_operation &type_operation,
+void otterbrix_service::data_handler(postgre_sql_type_operation type_operation,
                                     const std::string &table_name,
                                     const std::string &database_name,
                                     const std::vector<int32_t> &primary_key,
@@ -27,11 +35,12 @@ void otterbrix_service::data_handler(postgre_sql_type_operation &type_operation,
             auto insert_node = logical_plan::make_node_insert(std::pmr::get_default_resource(),
                                                               {database_name, table_name},
                                                               doc_result.document);
+            break;
         }
         case postgre_sql_type_operation::UPDATE: {
             tsl::doc_result doc_result = tsl::logical_replication_to_docs(&resource, columns.size(), columns, result);
             std::pair<expressions::expression_ptr, logical_plan::parameter_node_ptr> expression;
-            if (old_value.empty()) {
+            if (!old_value.empty()) {
                 expression = make_expression_match(&resource, old_value, columns);
             } else {
                 expression = make_expression_match(&resource, primary_key, result, columns);
@@ -44,6 +53,7 @@ void otterbrix_service::data_handler(postgre_sql_type_operation &type_operation,
                                                                   {database_name, table_name},
                                                                   node_match,
                                                                   doc_result.document);
+            break;
         }
         case postgre_sql_type_operation::DELETE: {
             std::pair<expressions::expression_ptr, logical_plan::parameter_node_ptr> expression
@@ -54,6 +64,7 @@ void otterbrix_service::data_handler(postgre_sql_type_operation &type_operation,
             auto node_delete = logical_plan::make_node_delete_one(&resource,
                                                               {database_name, table_name},
                                                               node_match);
+            break;
         }
     }
 }
@@ -64,10 +75,10 @@ void otterbrix_service::data_handler(pqxx::result &result,
     auto resource = std::pmr::synchronized_pool_resource();
     tsl::docs_result docs_result = tsl::postgres_to_docs(&resource, result);
 
-    for (auto doc: docs_result) {
+    for (auto doc: docs_result.document) {
         auto insert_node = logical_plan::make_node_insert(std::pmr::get_default_resource(),
                                                           {database_name, table_name},
-                                                          doc.document);
+                                                          doc);
     }
 }
 

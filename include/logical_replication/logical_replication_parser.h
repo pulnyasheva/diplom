@@ -3,9 +3,9 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include <logger.h>
-#include <logical_replication_consumer.h>
-#include <postgres_types.h>
+#include <common/logger.h>
+#include <logical_replication/logical_replication_consumer.h>
+#include <postgres/postgres_types.h>
 
 const std::string emptyValue = "NULL";
 

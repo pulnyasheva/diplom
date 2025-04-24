@@ -1,7 +1,7 @@
 #include <fmt/format.h>
 
-#include <сonnection.h>
-#include <logger.h>
+#include <postgres/сonnection.h>
+#include <common/logger.h>
 
 namespace postgres
 {
@@ -61,7 +61,7 @@ namespace postgres
             connection = std::make_unique<pqxx::connection>(connection_dsn);
 
             if (replication)
-                connection->set_variable("default_transaction_isolation", "'repeatable read'");
+                connection->set_session_var("default_transaction_isolation", "repeatable read");
 
             current_logger->log_to_file(log_level::DEBUG, fmt::format("New connection {}", connection_dsn));
         } catch (const std::exception& e) {

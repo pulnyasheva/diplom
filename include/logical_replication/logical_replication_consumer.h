@@ -3,15 +3,15 @@
 #include <cstdint>
 #include <unordered_set>
 
-#include <сonnection.h>
-#include <logger.h>
-#include <otterbrix_service.h>
-#include <postgres_settings.h>
-#include <set>
+#include <postgres/сonnection.h>
+#include <common/logger.h>
+#include <otterbrix/otterbrix_service.h>
+#include <postgres/postgres_settings.h>
 
 class logical_replication_consumer {
 public:
     logical_replication_consumer(
+    const std::string & connection_dsn_,
     std::shared_ptr<postgres::сonnection> connection_,
     const std::string & database_name_,
     const std::string & replication_slot_name_,

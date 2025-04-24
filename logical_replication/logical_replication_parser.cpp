@@ -1,9 +1,9 @@
-#include <cassert>
 #include <iostream>
 #include <vector>
+#include <fmt/format.h>
 
-#include <logical_replication_parser.h>
-#include <exception.h>
+#include <logical_replication/logical_replication_parser.h>
+#include <common/exception.h>
 
 logical_replication_parser::logical_replication_parser(
     std::string *current_lsn_,
@@ -228,8 +228,9 @@ void logical_replication_parser::parse_binary_data(const char *replication_messa
 
             int8_t new_data = parse_int8(replication_message, pos, size);
 
-            if (new_data)
+            if (new_data) {
                 parse_change_data(replication_message, pos, size, result, old_value);
+                }
             type_operation = postgre_sql_type_operation::INSERT;
             break;
         }
@@ -262,7 +263,6 @@ void logical_replication_parser::parse_binary_data(const char *replication_messa
                         break;
                     }
                 }
-
                 return read_next;
             };
 

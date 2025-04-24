@@ -1,8 +1,8 @@
 #include <iostream>
 #include <string>
 
-#include <logger.h>
-#include <logical_replication_handler.h>
+#include <common/logger.h>
+#include <logical_replication/logical_replication_handler.h>
 
 bool exampleDatabaseQuery(const std::string conninfo) {
     try {
@@ -19,7 +19,7 @@ bool exampleDatabaseQuery(const std::string conninfo) {
                 "('Lui', 'Doe', 21, 'lui.doe2@example.com'), "
                 "('Lui', 'Brown', 27, 'lui.brown2@example.com');");
 
-        tx.exec("UPDATE students SET age = 50 WHERE email = 'bob.brown2@example.com';");
+        tx.exec("UPDATE students SET age = 50 WHERE email = 'john.doe@example.com';");
 
         pqxx::result R = tx.exec("SELECT * FROM students");
         for (size_t i = 0; i < R.columns(); ++i) {
@@ -34,7 +34,7 @@ bool exampleDatabaseQuery(const std::string conninfo) {
             std::cout << std::endl;
         }
 
-        tx.exec("UPDATE students SET id = 17 WHERE email = 'john.doe2@example.com';");
+        tx.exec("UPDATE students SET id = 25 WHERE email = 'john.doe2@example.com';");
 
         tx.exec("DELETE FROM students WHERE first_name = 'Lui';");
 

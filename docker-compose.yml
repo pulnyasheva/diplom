@@ -12,5 +12,24 @@ services:
     ports:
       - '5432:5432'
     volumes:
-      - ./postgres/init:/docker-entrypoint-initdb.d
-      - ./postgres/postgresql.conf:/etc/postgresql.conf
+      - ./postgres_init/init:/docker-entrypoint-initdb.d
+      - ./postgres_init/postgresql.conf:/etc/postgresql.conf
+    networks:
+      - app_network
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: otterstax_app
+    depends_on:
+      - mariadb1
+      - mariadb2
+    ports:
+      - "0.0.0.0:8815:8815"
+      - "0.0.0.0:8085:8085"
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge

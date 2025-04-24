@@ -12,7 +12,7 @@ CREATE TABLE students
     last_name   VARCHAR(50)         NOT NULL,
     id          SERIAL PRIMARY KEY,
     age         INT CHECK (age > 0),
-    email       VARCHAR(100) UNIQUE NOT NULL
+    email       VARCHAR(100)
 );
 
 INSERT INTO students (first_name, last_name, age, email)

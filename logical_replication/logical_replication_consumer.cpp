@@ -1,13 +1,14 @@
 #include <iostream>
 #include <fmt/format.h>
 #include <pqxx/pqxx>
-
-#include <logical_replication_consumer.h>
-#include <logical_replication_parser.h>
-#include <exception.h>
 #include <set>
 
+#include <logical_replication/logical_replication_consumer.h>
+#include <logical_replication/logical_replication_parser.h>
+#include <common/exception.h>
+
 logical_replication_consumer::logical_replication_consumer(
+    const std::string & connection_dsn_,
     std::shared_ptr<postgres::сonnection> connection_,
     const std::string & database_name_,
     const std::string &replication_slot_name_,
@@ -24,7 +25,7 @@ logical_replication_consumer::logical_replication_consumer(
       result_lsn(start_lsn),
       lsn_value(get_lsn(start_lsn)),
       max_block_size(max_block_size_),
-      current_postgres_settings(connection_, logger_) {
+      current_postgres_settings(connection_dsn_, logger_) {
 }
 
 uint64_t logical_replication_consumer::get_lsn(const std::string & lsn)
@@ -74,7 +75,7 @@ std::vector<int32_t> logical_replication_consumer::get_primary_key(int32_t table
         }
     }
     id_to_primary_key[table_id] = primary_key_columns;
-    return primary_key_columns;
+    return id_to_primary_key[table_id];
 }
 
 bool logical_replication_consumer::consume()
@@ -85,15 +86,12 @@ bool logical_replication_consumer::consume()
     {
         auto tx = std::make_shared<pqxx::nontransaction>(connection->get_ref());
 
-        /// Read up to max_block_size rows changes (upto_n_changes parameter). It might return larger number as the limit
-        /// is checked only after each transaction block.
-        /// Returns less than max_block_changes, if reached end of wal. Sync to table in this case.
         std::string query_str = fmt::format(
                 "select lsn, data FROM pg_logical_slot_peek_binary_changes("
                 "'{}', NULL, {}, 'publication_names', '{}', 'proto_version', '1')",
                 replication_slot_name, max_block_size, publication_name);
 
-        auto stream{pqxx::stream_from::query(*tx, query_str)};
+        pqxx::stream_from stream{pqxx::stream_from::query(*tx, query_str)};
 
         logical_replication_parser parser = logical_replication_parser(&current_lsn, &result_lsn, &is_committed, current_logger);
 

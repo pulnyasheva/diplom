@@ -1,6 +1,6 @@
 #include <fmt/format.h>
 
-#include <exception.h>
+#include <common/exception.h>
 
 exception::exception(error_codes code, const std::string &message)
     : std::runtime_error(message), error_code(code) {

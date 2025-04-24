@@ -3,10 +3,10 @@
 #include <pqxx/pqxx>
 #include <future>
 
-#include <logger.h>
-#include <сonnection.h>
-#include <logical_replication_consumer.h>
-#include <scheduler.h>
+#include <common/logger.h>
+#include <postgres/сonnection.h>
+#include <logical_replication/logical_replication_consumer.h>
+#include <common/scheduler.h>
 
 namespace pqxx {
     using replication_transaction = transaction<repeatable_read, write_policy::read_only>;

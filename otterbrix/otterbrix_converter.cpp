@@ -1,10 +1,10 @@
 #include <functional>
-#include <otterbrix_converter.h>
-#include <logical_replication_parser.h>
 #include <sstream>
 
-#include <document_types.h>
-#include <postgres_types.h>
+#include <otterbrix/document_types.h>
+#include <otterbrix/otterbrix_converter.h>
+#include <logical_replication/logical_replication_parser.h>
+#include <postgres/postgres_types.h>
 
 using logical_replication_to_otterbrix_doc = std::function<void(components::document::document_ptr,
                                                                 const std::vector<std::string> &)>;
