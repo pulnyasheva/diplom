@@ -1,3 +1,8 @@
+#include <string>
+#include <iostream>
+#include <memory>
+#include <filesystem>
+
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <actor-zeta/base/address.hpp>
 
@@ -11,6 +16,7 @@
 #include <components/logical_plan/node_delete.hpp>
 #include <components/logical_plan/node_insert.hpp>
 #include <components/logical_plan/node_update.hpp>
+#include <components/configuration/configuration.hpp>
 #include <components/log/log.hpp>
 #include <integration/cpp/wrapper_dispatcher.hpp>
 #include <components/session/session.hpp>
@@ -29,12 +35,28 @@ void otterbrix_service::data_handler(postgre_sql_type_operation type_operation,
                                     const std::vector<std::pair<std::string, int32_t>> &columns,
                                     const std::unordered_map<int32_t, std::string> &old_value) {
     auto resource = std::pmr::synchronized_pool_resource();
+    underlying_logger = spdlog::stdout_color_mt("app_logger");
+    log_t my_logger(underlying_logger);
+    actor_zeta::base::address_t manager_addr = actor_zeta::base::address_t::empty_address();
+    otterbrix::wrapper_dispatcher_t wrapper_dispatcher(&resource, manager_addr, my_logger);
+    core::filesystem::local_file_system_t local_file_system = core::filesystem::local_file_system_t();
+    core::filesystem::path_t path = core::filesystem::path_t::path();
+    std::unique_ptr<core::filesystem::file_handle_t> file_ptr1 =
+        std::make_unique<core::filesystem::file_handle_t>(local_file_system, path);
+    auto wal_conf = otterbrix::config_wal();
+    auto manager = actor_zeta::spawn_supervisor<services::wal::manager_wal_replicate_t>(wrapper_dispatcher.resource(),
+                                                                                            nullptr,
+                                                                                            wal_conf,
+                                                                                            my_logger);
+    services::wal::wal_replicate_t wal(manager.get(), log, file_ptr1);
     switch (type_operation) {
         case postgre_sql_type_operation::INSERT: {
             tsl::doc_result doc_result = tsl::logical_replication_to_docs(&resource, columns.size(), columns, result);
             auto insert_node = logical_plan::make_node_insert(std::pmr::get_default_resource(),
                                                               {database_name, table_name},
                                                               doc_result.document);
+            otterbrix::session_id_t session_id;
+            wal.insert_one(session_id, manager_addr, insert_node);
             break;
         }
         case postgre_sql_type_operation::UPDATE: {
@@ -53,6 +75,8 @@ void otterbrix_service::data_handler(postgre_sql_type_operation type_operation,
                                                                   {database_name, table_name},
                                                                   node_match,
                                                                   doc_result.document);
+            otterbrix::session_id_t session_id;
+            wal.update_one(session_id, manager_addr, node_update, expression.second);
             break;
         }
         case postgre_sql_type_operation::DELETE: {
@@ -64,6 +88,8 @@ void otterbrix_service::data_handler(postgre_sql_type_operation type_operation,
             auto node_delete = logical_plan::make_node_delete_one(&resource,
                                                               {database_name, table_name},
                                                               node_match);
+            otterbrix::session_id_t session_id;
+            wal.delete_one(session_id, manager_addr, node_delete, expression.second);
             break;
         }
     }
