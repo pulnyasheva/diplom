@@ -32,7 +32,7 @@ public:
             std::string user_snapshot = "");
 
     /// Start replication.
-    void start_synchronization();
+    void start_synchronization(std::string &start_lsn_string);
 
     bool run_consumer();
 

@@ -13,9 +13,6 @@
 #include <components/logical_plan/node_update.hpp>
 #include <components/log/log.hpp>
 #include <integration/cpp/wrapper_dispatcher.hpp>
-#include <components/session/session.hpp>
-#include <services/wal/forward.hpp>
-#include <services/wal/wal.hpp>
 
 using expressions::compare_type;
 using key = expressions::key_t;

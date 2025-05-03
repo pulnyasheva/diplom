@@ -37,7 +37,6 @@ add_executable(diplom postgres/сonnection.cpp
         include/postgres/postgres_settings.h
         postgres/postgres_settings.cpp
         include/otterbrix/document_types.h
-        main.cpp
 )
 
 target_link_libraries(diplom PUBLIC libpqxx::pqxx fmt::fmt otterbrix::otterbrix CURL::libcurl spdlog::spdlog)

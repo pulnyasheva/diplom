@@ -87,7 +87,7 @@ bool logical_replication_consumer::consume()
         auto tx = std::make_shared<pqxx::nontransaction>(connection->get_ref());
 
         std::string query_str = fmt::format(
-                "select lsn, data FROM pg_logical_slot_peek_binary_changes("
+                "select lsn, data FROM pg_logical_slot_get_binary_changes("
                 "'{}', NULL, {}, 'publication_names', '{}', 'proto_version', '1')",
                 replication_slot_name, max_block_size, publication_name);
 
@@ -101,6 +101,7 @@ bool logical_replication_consumer::consume()
 
             if (!row)
             {
+                std::cout << "end" << std::endl;
                 stream.complete();
 
                 if (is_slot_empty)
