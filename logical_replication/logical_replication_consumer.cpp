@@ -229,10 +229,10 @@ bool logical_replication_consumer::consume()
                 const char* logical_data_start = data + 1 + 8 + 8 + 8;
                 size_t logical_data_len = len - (1 + 8 + 8 + 8);
 
-                std::cout << "Payload length: " << logical_data_len << " bytes" << std::endl;
-
-                std::cout << fmt::format("Received XLogData. LSN Range: [{}, {}). Size: {}",
-                                         lsn_to_string(wal_start_lsn), lsn_to_string(wal_end_lsn), logical_data_len) << std::endl;
+                current_logger->log_to_file(log_level::INFO, fmt::format(
+                                                "Received XLogData. LSN Range: [{}, {}). Size: {}",
+                                                lsn_to_string(wal_start_lsn), lsn_to_string(wal_end_lsn),
+                                                logical_data_len));
 
                 std::stringstream ss_hex_logical_replication;
                 ss_hex_logical_replication << "\\x";
@@ -246,8 +246,6 @@ bool logical_replication_consumer::consume()
                 }
 
                 std::string compact_hex_logical_replication = ss_hex_logical_replication.str();
-                std::cout << "Formatted Payload String:" << std::endl;
-                std::cout << compact_hex_logical_replication << std::endl;
 
                 try
                 {
@@ -256,7 +254,7 @@ bool logical_replication_consumer::consume()
                     postgre_sql_type_operation type_operation;
                     int32_t table_id_query;
                     parser.parse_binary_data(compact_hex_logical_replication.c_str(),
-                                             logical_data_len,
+                                             logical_data_len * 2 + 2,
                                              type_operation,
                                              table_id_query,
                                              result,
