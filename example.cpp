@@ -21,8 +21,6 @@ bool exampleDatabaseQuery(const std::string conninfo) {
 
         tx.exec("UPDATE students SET age = 50 WHERE email = 'john.doe@example.com';");
 
-        tx.exec("UPDATE students SET id = 25 WHERE email = 'john.doe2@example.com';");
-
         tx.exec("DELETE FROM students WHERE first_name = 'Lui';");
 
         tx.exec("DELETE FROM students WHERE email = 'john.doe2@example.com';");
@@ -50,11 +48,12 @@ int main() {
         100);
 
     replication_handler.start_synchronization();
-    std::cout << replication_handler.run_consumer() << std::endl;
 
     if (!exampleDatabaseQuery(conninfo)) {
         return 1;
     }
+
+    replication_handler.run_consumer();
 
     return 0;
 }
