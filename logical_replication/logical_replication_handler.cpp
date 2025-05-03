@@ -109,12 +109,10 @@ bool logical_replication_handler::run_consumer() {
     return get_consumer()->consume();
 }
 
-void logical_replication_handler::start_synchronization(std::string &start_lsn_string) {
+void logical_replication_handler::start_synchronization() {
     postgres::сonnection replication_connection(connection_dsn, &current_logger, true);
     pqxx::nontransaction tx(replication_connection.get_ref());
     create_publication(tx);
-    std::cout << "publ_name " << publication_name;
-    std::cout << "slot " << replication_slot;
 
     std::string snapshot_name;
     std::string start_lsn;
@@ -167,7 +165,6 @@ void logical_replication_handler::start_synchronization(std::string &start_lsn_s
         start_lsn,
         max_block_size,
         &current_logger);
-    start_lsn_string = start_lsn;
     current_logger.log_to_file(log_level::DEBUG, "Consumer created");
 }
 

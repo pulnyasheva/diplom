@@ -51,6 +51,7 @@ int8_t logical_replication_parser::parse_int8(const char * message, size_t & pos
         throw exception(error_codes::LOGICAL_ERROR, "Message small from parse int8");
     }
     int8_t result = hex_2_char_to_digit(message + pos);
+    std::cout << "result " << result << std::endl;
     pos += 2;
     return result;
 }
@@ -108,10 +109,12 @@ void logical_replication_parser::parse_change_data(const char *message,
                                                bool old_value = false)
 {
     int16_t num_columns = parse_int16(message, pos, size);
+    std::cout << "num columns " << num_columns << std::endl;
     result.resize(num_columns);
 
     auto proccess_column_value = [&](int8_t identifier_data, int16_t column_idx)
     {
+        std::cout << "idx " << column_idx << std::endl;
         current_logger->log_to_file(log_level::DEBUG, fmt::format("Identifier data: {}", identifier_data));
         switch (identifier_data)
         {
@@ -124,10 +127,16 @@ void logical_replication_parser::parse_change_data(const char *message,
             }
             case 't': /// Text
             {
+                std::cout << "text" << std::endl;
                 int32_t col_len = parse_int32(message, pos, size);
+                std::cout << "col_len " << col_len << std::endl;
                 std::string value;
-                for (int32_t i = 0; i < col_len; ++i)
-                    value += static_cast<char>(parse_int8(message, pos, size));
+                for (int32_t i = 0; i < col_len; ++i) {
+                    std::cout << "val number " << i << std::endl;
+                    auto val = static_cast<char>(parse_int8(message, pos, size));
+                    std::cout << "val " << val << std::endl;
+                    value += val;
+                }
 
                 if (old_value)
                     old_result[column_idx] = value;
@@ -230,7 +239,7 @@ void logical_replication_parser::parse_binary_data(const char *replication_messa
 
             if (new_data) {
                 parse_change_data(replication_message, pos, size, result, old_value);
-                }
+            }
             type_operation = postgre_sql_type_operation::INSERT;
             break;
         }
