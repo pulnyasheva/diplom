@@ -49,11 +49,12 @@ int main() {
 
     replication_handler.start_synchronization();
 
+    std::thread consumer_thread(&logical_replication_handler::run_consumer, &replication_handler);
+
     if (!exampleDatabaseQuery(conninfo)) {
         return 1;
     }
 
-    replication_handler.run_consumer();
-
+    consumer_thread.join();
     return 0;
 }
