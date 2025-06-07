@@ -2,7 +2,7 @@
 #include <vector>
 #include <iostream>
 
-#include <logical_replication//logical_replication_handler.h>
+#include <logical_replication/logical_replication_handler.h>
 #include <otterbrix/otterbrix_layer.h>
 #include <otterbrix/otterbrix_service.h>
 
