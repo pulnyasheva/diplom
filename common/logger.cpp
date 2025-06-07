@@ -30,6 +30,10 @@ logger::~logger() {
 }
 
 void logger::log_to_file(log_level level, const std::string& message) {
+    if (level > current_log_level) {
+        return;
+    }
+
     std::lock_guard guard(log_mutex);
     if (log_file.is_open()) {
         log_file << get_current_time() << " [" << log_level_to_string(level) << "] " << message << std::endl;
@@ -37,6 +41,10 @@ void logger::log_to_file(log_level level, const std::string& message) {
 }
 
 void logger::log_to_url(log_level level, const std::string& message) {
+    if (level > current_log_level) {
+        return;
+    }
+
     std::lock_guard guard(log_mutex);
 
     std::ostringstream oss;
@@ -70,10 +78,10 @@ std::string logger::get_current_time() {
 
 std::string logger::log_level_to_string(log_level level) {
     switch (level) {
-        case log_level::DEBUG: return "DEBUG";
+        case log_level::DEBUGER: return "DEBUG";
         case log_level::INFO: return "INFO";
-        case log_level::WARNING: return "WARNING";
-        case log_level::ERROR: return "ERROR";
+        case log_level::WARN: return "WARNING";
+        case log_level::ERR: return "ERROR";
         case log_level::CRITICAL: return "CRITICAL";
         default: return "UNKNOWN";
     }

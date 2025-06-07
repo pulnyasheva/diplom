@@ -64,7 +64,7 @@ std::set<std::string> postgres_settings::get_primary_key(std::string &qualified_
             primary_key.insert(row[0].as<std::string>());
         }
     } catch (const std::exception &e) {
-        current_logger->log_to_file(log_level::ERROR, e.what());
+        current_logger->log_to_file(log_level::ERR, e.what());
     }
 
     return primary_key;

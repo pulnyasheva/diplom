@@ -4,12 +4,12 @@
 #include <fstream>
 #include <mutex>
 
-enum class log_level {
-    DEBUG,
-    INFO,
-    WARNING,
-    ERROR,
-    CRITICAL
+enum log_level : int {
+    CRITICAL = 0,
+    ERR = 1,
+    WARN = 2,
+    INFO = 3,
+    DEBUGER = 4
 };
 
 class logger {
@@ -27,6 +27,7 @@ private:
     std::string file_name;
     std::mutex log_mutex;
     std::string url;
+    log_level current_log_level = log_level::INFO;
 
     static std::string get_current_time();
     static std::string log_level_to_string(log_level level);

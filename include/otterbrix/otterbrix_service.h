@@ -10,12 +10,25 @@
 #include <components/expressions/key.hpp>
 #include <components/logical_plan/param_storage.hpp>
 #include <components/expressions/forward.hpp>
+#include <lock_free_queue/readerwriterqueue.h>
+#include <integration/cpp/otterbrix.hpp>
+
+using namespace moodycamel;
 
 using key = components::expressions::key_t;
 using id_par = core::parameter_id_t;
 
+struct result_node {
+    components::logical_plan::node_ptr node;
+    components::logical_plan::parameter_node_ptr parameter;
+    bool has_parameter;
+};
+
 class otterbrix_service {
 public:
+    explicit otterbrix_service(ReaderWriterQueue<result_node> &queue_): queue(queue_) {}
+    otterbrix_service(otterbrix_service&&) noexcept;
+
     std::shared_ptr<spdlog::logger> underlying_logger;
 
     void data_handler(postgre_sql_type_operation type_operation,
@@ -24,11 +37,13 @@ public:
                       const std::vector<int32_t> &primary_key,
                       const std::vector<std::string> &result,
                       const std::vector<std::pair<std::string, int32_t>> &columns,
-                      const std::unordered_map<int32_t, std::string> &old_value);
+                      const std::unordered_map<int32_t, std::string> &old_value,
+                      std::pmr::memory_resource* resource);
 
     void data_handler(pqxx::result &result,
                       const std::string &table_name,
-                      const std::string &database_name);
+                      const std::string &database_name,
+                      std::pmr::memory_resource* resource);
 private:
     std::pair<components::expressions::expression_ptr,
     components::logical_plan::parameter_node_ptr> make_expression_match(
@@ -42,4 +57,6 @@ private:
     std::pmr::memory_resource* resource,
     const std::unordered_map<int32_t, std::string> &old_value,
     const std::vector<std::pair<std::string, int32_t>> &columns);
+
+    ReaderWriterQueue<result_node> &queue;
 };

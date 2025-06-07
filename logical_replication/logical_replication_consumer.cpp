@@ -16,7 +16,9 @@ logical_replication_consumer::logical_replication_consumer(
     const std::string &publication_name_,
     const std::string &start_lsn,
     size_t max_block_size_,
-    logger *logger_)
+    logger *logger_,
+    otterbrix_service *otterbrix_service_,
+    std::pmr::memory_resource* resource_)
     : current_logger(logger_),
       replication_slot_name(replication_slot_name_),
       publication_name(publication_name_),
@@ -27,7 +29,9 @@ logical_replication_consumer::logical_replication_consumer(
       result_lsn(start_lsn),
       current_lsn_value(get_lsn(start_lsn)),
       max_block_size(max_block_size_),
-      current_postgres_settings(connection_dsn_, logger_) {
+      current_postgres_settings(connection_dsn_, logger_),
+      current_otterbrix_service(otterbrix_service_),
+      resource(resource_){
 }
 
 uint64_t logical_replication_consumer::get_lsn(const std::string & lsn)
@@ -87,7 +91,7 @@ void logical_replication_consumer::send_standby_status_update(PGconn *conn,
         auto diff = std::chrono::duration_cast<std::chrono::microseconds>(now - pg_epoch);
         client_time_us = diff.count();
     } catch (const std::exception& e) {
-        current_logger->log_to_file(log_level::WARNING, fmt::format("Warning: Could not get current time for feedback: {}", e.what()));
+        current_logger->log_to_file(log_level::WARN, fmt::format("Could not get current time for feedback: {}", e.what()));
          client_time_us = 0;
     }
 
@@ -97,20 +101,20 @@ void logical_replication_consumer::send_standby_status_update(PGconn *conn,
     reply_buf[current_pos++] = (request_reply_from_server ? 1 : 0);
 
     if (current_pos != reply_buf_size) {
-        current_logger->log_to_file(log_level::ERROR,
-                                    fmt::format("Internal error: Feedback buffer size mismatch. Expected {}, got {}",
+        current_logger->log_to_file(log_level::ERR,
+                                    fmt::format("Internal ERR: Feedback buffer size mismatch. Expected {}, got {}",
                                                 reply_buf_size, current_pos));
     }
 
     if (PQputCopyData(conn, reply_buf, reply_buf_size) != 1) {
-        current_logger->log_to_file(log_level::ERROR,
+        current_logger->log_to_file(log_level::ERR,
                                     fmt::format("Failed to send feedback data (PQputCopyData): {}",
                                                 PQerrorMessage(conn)));
     }
 
     int flush_result = PQflush(conn);
     if (flush_result < 0) {
-        current_logger->log_to_file(log_level::ERROR,
+        current_logger->log_to_file(log_level::ERR,
                                     fmt::format("Failed to flush feedback data (PQflush): {}", PQerrorMessage(conn)));
     }
 }
@@ -120,7 +124,7 @@ PGconn *logical_replication_consumer::start_replication() {
     PGconn *conn = PQconnectdb(connection_dsn_replication.c_str());
 
     if (PQstatus(conn) != CONNECTION_OK) {
-        current_logger->log_to_file(log_level::ERROR,
+        current_logger->log_to_file(log_level::ERR,
                                     fmt::format("Connection to database failed: {}", PQerrorMessage(conn)));
         PQfinish(conn);
     }
@@ -134,9 +138,9 @@ PGconn *logical_replication_consumer::start_replication() {
     PGresult *res = PQexec(conn, start_repl_query.c_str());
 
     if (PQresultStatus(res) != PGRES_COPY_BOTH) {
-        current_logger->log_to_file(log_level::ERROR,
+        current_logger->log_to_file(log_level::ERR,
                                     fmt::format("START_REPLICATION failed: {}", PQerrorMessage(conn)));
-        current_logger->log_to_file(log_level::ERROR,
+        current_logger->log_to_file(log_level::ERR,
                                     fmt::format("Result status: {}", PQresStatus(PQresultStatus(res))));
         PQclear(res);
         PQfinish(conn);
@@ -172,12 +176,12 @@ bool logical_replication_consumer::consume()
             int bytes_read = PQgetCopyData(conn, &copy_buf, 0);
 
             if (bytes_read == -2) {
-                current_logger->log_to_file(log_level::ERROR, "End of replication stream.");
+                current_logger->log_to_file(log_level::ERR, "End of replication stream.");
                 break;
             }
 
             if (bytes_read == -1) {
-                current_logger->log_to_file(log_level::ERROR,
+                current_logger->log_to_file(log_level::ERR,
                                             fmt::format("Failed to read replication data: {}", PQerrorMessage(conn)));
                 break;
             }
@@ -186,6 +190,7 @@ bool logical_replication_consumer::consume()
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
                 continue;
             }
+            // std::cout << "bytes read" << std::endl;
 
             const char *data = copy_buf;
             size_t len = static_cast<size_t>(bytes_read);
@@ -194,7 +199,7 @@ bool logical_replication_consumer::consume()
 
             if (message_type == 'k') { // Primary keep-alive message
                 if (len < 1 + 8 + 8 + 1) {
-                    current_logger->log_to_file(log_level::ERROR, fmt::format("Received truncated KeepAlive message."));
+                    current_logger->log_to_file(log_level::ERR, fmt::format("Received truncated KeepAlive message."));
                     continue;
                 }
 
@@ -206,14 +211,14 @@ bool logical_replication_consumer::consume()
                 bool reply_required = (data[1 + 8 + 8] == 1);
 
                 if (reply_required) {
-                    current_logger->log_to_file(log_level::ERROR, fmt::format("Sending immediate feedback. Processed LSN: {}", lsn_to_string(last_processed_lsn)));
+                    current_logger->log_to_file(log_level::ERR, fmt::format("Sending immediate feedback. Processed LSN: {}", lsn_to_string(last_processed_lsn)));
                     send_standby_status_update(conn, last_received_lsn, last_processed_lsn, last_processed_lsn, false);
                     last_feedback_time = std::chrono::steady_clock::now();
                 }
 
             } else if (message_type == 'w') { // XLogData message
                 if (len < 1 + 8 + 8 + 8) {
-                    current_logger->log_to_file(log_level::ERROR, "Received truncated XLogData message.");
+                    current_logger->log_to_file(log_level::ERR, "Received truncated XLogData message.");
                     continue;
                 }
 
@@ -262,19 +267,19 @@ bool logical_replication_consumer::consume()
                                              id_skip_table_name,
                                              id_table_to_column,
                                              old_value);
-                    current_otterbrix_service.data_handler(type_operation, id_to_table_name[table_id_query],
-                                                           database_name,
-                                                           get_primary_key(table_id_query), result,
-                                                           id_table_to_column[table_id_query], old_value);
+                    current_otterbrix_service->data_handler(type_operation, id_to_table_name[table_id_query],
+                                                            database_name,
+                                                            get_primary_key(table_id_query), result,
+                                                            id_table_to_column[table_id_query], old_value, resource);
                 }
                 catch (const exception &e)
                 {
-                    current_logger->log_to_file(log_level::ERROR, fmt::format("Error during parsing: {}", e.what()));
+                    current_logger->log_to_file(log_level::ERR, fmt::format("ERR during parsing: {}", e.what()));
                 }
 
                 last_processed_lsn = last_received_lsn;
             } else {
-                current_logger->log_to_file(log_level::WARNING, fmt::format("Received unknown message type: {}", message_type));
+                current_logger->log_to_file(log_level::WARN, fmt::format("Received unknown message type: {}", message_type));
             }
 
             auto now = std::chrono::steady_clock::now();
@@ -285,7 +290,7 @@ bool logical_replication_consumer::consume()
             }
 
             if (PQconsumeInput(conn) == 0) {
-                current_logger->log_to_file(log_level::ERROR,
+                current_logger->log_to_file(log_level::ERR,
                                             fmt::format("Failed to consume input: {}", PQerrorMessage(conn)));
                 break;
             }
@@ -300,12 +305,12 @@ bool logical_replication_consumer::consume()
     }
     catch (const exception &e)
     {
-        current_logger->log_to_file(log_level::ERROR, fmt::format("Exception thrown in consume", e.what()));
+        current_logger->log_to_file(log_level::ERR, fmt::format("Exception thrown in consume", e.what()));
         return false;
     }
     catch (const std::exception & e)
     {
-        current_logger->log_to_file(log_level::ERROR, e.what());
+        current_logger->log_to_file(log_level::ERR, e.what());
         return false;
     }
 

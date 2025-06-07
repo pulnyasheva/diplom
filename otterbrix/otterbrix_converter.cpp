@@ -13,7 +13,8 @@ using logical_replication_to_otterbrix_doc_impl =
         components::document::document_ptr,
         const std::string &,
         const std::vector<std::string> &,
-        const int16_t &)>;
+        const int16_t &,
+        std::pmr::memory_resource*)>;
 
 using postgres_to_otterbrix_doc = std::function<void(components::document::document_ptr, const pqxx::row &)>;
 using postgres_to_otterbrix_doc_impl =
@@ -21,9 +22,24 @@ using postgres_to_otterbrix_doc_impl =
         components::document::document_ptr,
         const std::string &,
         const pqxx::row &,
-        size_t)>;
+        size_t,
+        std::pmr::memory_resource*)>;
 
 namespace {
+    bool
+    set_id(components::document::document_ptr doc,
+             const std::string &name,
+             const int64_t &value,
+             std::pmr::memory_resource *res)
+    {
+        if (name == "/_id") {
+            std::cout << "_id " << std::endl;
+            doc->set(name, tsl::gen_id(value, res));
+            return true;
+        }
+        return false;
+    }
+
     std::vector<std::string> parse_string(const std::string& input) {
         std::vector<std::string> result;
 
@@ -49,63 +65,75 @@ namespace {
     set_int8(components::document::document_ptr doc,
              const std::string &name,
              const std::vector<std::string> &result,
-             const int16_t &index)
+             const int16_t &index,
+             std::pmr::memory_resource* resource)
     {
         if (result[index] == emptyValue) {
             doc->set(name, nullptr);
             return;
         }
         int64_t int_value = std::stoll(result[index]);
-        doc->set<int8_t>(name, int_value);
+        if (!set_id(doc, name, int_value, resource)) {
+            doc->set<int8_t>(name, int_value);
+        }
     }
 
     void
     set_int16(components::document::document_ptr doc,
               const std::string &name,
               const std::vector<std::string> &result,
-              const int16_t &index)
+              const int16_t &index,
+              std::pmr::memory_resource* resource)
     {
         if (result[index] == emptyValue) {
             doc->set(name, nullptr);
             return;
         }
         int64_t int_value = std::stoll(result[index]);
-        doc->set<int16_t>(name, int_value);
+        if (!set_id(doc, name, int_value, resource)) {
+            doc->set<int16_t>(name, int_value);
+        }
     }
 
     void
     set_int32(components::document::document_ptr doc,
               const std::string &name,
               const std::vector<std::string> &result,
-              const int16_t &index)
+              const int16_t &index,
+              std::pmr::memory_resource* resource)
     {
         if (result[index] == emptyValue) {
             doc->set(name, nullptr);
             return;
         }
         int64_t int_value = std::stoll(result[index]);
-        doc->set<int32_t>(name, int_value);
+        if (!set_id(doc, name, int_value, resource)) {
+            doc->set<int32_t>(name, int_value);
+        }
     }
 
     void
     set_int64(components::document::document_ptr doc,
               const std::string &name,
               const std::vector<std::string> &result,
-              const int16_t &index)
-    {
+              const int16_t &index,
+              std::pmr::memory_resource* resource) {
         if (result[index] == emptyValue) {
             doc->set(name, nullptr);
             return;
         }
         int64_t int_value = std::stoll(result[index]);
-        doc->set<int64_t>(name, int_value);
+        if (!set_id(doc, name, int_value, resource)) {
+            doc->set<int64_t>(name, int_value);
+        }
     }
 
     void
     set_float(components::document::document_ptr doc,
               const std::string &name,
               const std::vector<std::string> &result,
-              const int16_t &index)
+              const int16_t &index,
+              std::pmr::memory_resource* resource)
     {
         if (result[index] == emptyValue) {
             doc->set(name, nullptr);
@@ -119,7 +147,8 @@ namespace {
     set_double(components::document::document_ptr doc,
                const std::string &name,
                const std::vector<std::string> &result,
-               const int16_t &index) {
+               const int16_t &index,
+               std::pmr::memory_resource* resource) {
         if (result[index] == emptyValue) {
             doc->set(name, nullptr);
             return;
@@ -132,7 +161,8 @@ namespace {
     set_bit(components::document::document_ptr doc,
             const std::string &name,
             const std::vector<std::string> &result,
-            const int16_t &index) {
+            const int16_t &index,
+            std::pmr::memory_resource* resource) {
         if (result[index] == emptyValue) {
             doc->set(name, nullptr);
             return;
@@ -148,7 +178,8 @@ namespace {
     set_string(components::document::document_ptr doc,
                const std::string &name,
                const std::vector<std::string> &result,
-               const int16_t &index) {
+               const int16_t &index,
+               std::pmr::memory_resource* resource) {
         if (result[index] == emptyValue) {
             doc->set(name, nullptr);
             return;
@@ -192,7 +223,8 @@ namespace {
                const std::string &name,
                const std::vector<std::string> &result,
                const int16_t &index,
-               const int32_t& type) {
+               const int32_t& type,
+               std::pmr::memory_resource* resource) {
         if (result[index] == emptyValue) {
             doc->set(name, nullptr);
             return;
@@ -203,7 +235,7 @@ namespace {
         auto translator = type_to_translator_array(type);
 
         for (int i = 0; i < values.size(); i++) {
-            translator(doc->get_array(name), std::to_string(i), std::vector{values[i]}, 0);
+            translator(doc->get_array(name), std::to_string(i), std::vector{values[i]}, 0, resource);
         }
     }
 
@@ -211,59 +243,75 @@ namespace {
     set_int8_postgres(components::document::document_ptr doc,
                       const std::string &name,
                       const pqxx::row &result,
-                      const int16_t &index) {
+                      const int16_t &index,
+                      std::pmr::memory_resource* resource) {
         if (result[index].is_null()) {
             doc->set(name, nullptr);
             return;
         }
         int64_t int_value = result[index].get<int64_t>().value();
-        doc->set<int8_t>(name, int_value);
+        if (!set_id(doc, name, int_value, resource)) {
+            std::cout << "name " << name << " value " << int_value << std::endl;
+            doc->set<int8_t>(name, int_value);
+        }
     }
 
     void
     set_int16_postgres(components::document::document_ptr doc,
                        const std::string &name,
                        const pqxx::row &result,
-                       const int16_t &index) {
+                       const int16_t &index,
+                       std::pmr::memory_resource* resource) {
         if (result[index].is_null()) {
             doc->set(name, nullptr);
             return;
         }
         int64_t int_value = result[index].get<int64_t>().value();
-        doc->set<int16_t>(name, int_value);
+        if (!set_id(doc, name, int_value, resource)) {
+            std::cout << "name " << name << "value " << int_value << std::endl;
+            doc->set<int16_t>(name, int_value);
+        }
     }
 
     void
     set_int32_postgres(components::document::document_ptr doc,
                        const std::string &name,
                        const pqxx::row &result,
-                       const int16_t &index) {
+                       const int16_t &index,
+                       std::pmr::memory_resource* resource) {
         if (result[index].is_null()) {
             doc->set(name, nullptr);
             return;
         }
         int64_t int_value = result[index].get<int64_t>().value();
-        doc->set<int32_t>(name, int_value);
+        if (!set_id(doc, name, int_value, resource)) {
+            doc->set<int32_t>(name, int_value);
+        }
     }
 
     void
     set_int64_postgres(components::document::document_ptr doc,
                        const std::string &name,
                        const pqxx::row &result,
-                       const int16_t &index) {
+                       const int16_t &index,
+                       std::pmr::memory_resource* resource) {
         if (result[index].is_null()) {
             doc->set(name, nullptr);
             return;
         }
         int64_t int_value = result[index].get<int64_t>().value();
-        doc->set<int64_t>(name, int_value);
+        if (!set_id(doc, name, int_value, resource)) {
+            std::cout << "name " << name << "value " << int_value << std::endl;
+            doc->set<int64_t>(name, int_value);
+        }
     }
 
     void
     set_float_postgres(components::document::document_ptr doc,
                        const std::string &name,
                        const pqxx::row &result,
-                       const int16_t &index)
+                       const int16_t &index,
+                       std::pmr::memory_resource* resource)
     {
         if (result[index].is_null()) {
             doc->set(name, nullptr);
@@ -277,7 +325,8 @@ namespace {
     set_double_postgres(components::document::document_ptr doc,
                         const std::string &name,
                         const pqxx::row &result,
-                        const int16_t &index) {
+                        const int16_t &index,
+                        std::pmr::memory_resource* resource) {
         if (result[index].is_null()) {
             doc->set(name, nullptr);
             return;
@@ -290,7 +339,8 @@ namespace {
     set_bit_postgres(components::document::document_ptr doc,
                      const std::string &name,
                      const pqxx::row &result,
-                     const int16_t &index) {
+                     const int16_t &index,
+                     std::pmr::memory_resource* resource) {
         if (result[index].is_null()) {
             doc->set(name, nullptr);
             return;
@@ -303,12 +353,14 @@ namespace {
     set_string_postgres(components::document::document_ptr doc,
                         const std::string &name,
                         const pqxx::row &result,
-                        const int16_t &index) {
+                        const int16_t &index,
+                        std::pmr::memory_resource* resource) {
         if (result[index].is_null()) {
             doc->set(name, nullptr);
             return;
         }
         std::string string_value = result[index].c_str();
+        std::cout << "name " << name << " value " << string_value << std::endl;
         doc->set<std::string>(name, string_value);
     }
 
@@ -317,7 +369,8 @@ namespace {
                        const std::string &name,
                        const pqxx::row &result,
                        const int16_t &index,
-                       const int32_t &type) {
+                       const int32_t &type,
+                       std::pmr::memory_resource* resource) {
         if (result[index].is_null()) {
             doc->set(name, nullptr);
             return;
@@ -329,7 +382,7 @@ namespace {
         auto translator = type_to_translator_array(type);
 
         for (int i = 0; i < values.size(); i++) {
-            translator(doc->get_array(name), std::to_string(i), std::vector{values[i]}, 0);
+            translator(doc->get_array(name), std::to_string(i), std::vector{values[i]}, 0, resource);
         }
     }
 
@@ -379,8 +432,9 @@ namespace {
                 auto setter = [type_element = type](components::document::document_ptr doc,
                                                     const std::string &name,
                                                     const std::vector<std::string> &result,
-                                                    const int16_t &index) ->
-                    void { set_array(doc, name, result, index, type_element); };
+                                                    const int16_t &index,
+                                                    std::pmr::memory_resource* resource) ->
+                    void { set_array(doc, name, result, index, type_element, resource); };
                 logical_replication_to_doc_setter row_to_doc_setter;
                 row_to_doc_setter.setter = std::move(setter);
                 row_to_doc_setter.type = document_types::ARRAY;
@@ -432,8 +486,9 @@ namespace {
                 auto setter = [type_element = type](components::document::document_ptr doc,
                                                     const std::string &name,
                                                     const pqxx::row &result,
-                                                    const int16_t &index) ->
-                    void { set_array_postgres(doc, name, result, index, type_element); };
+                                                    const int16_t &index,
+                                                    std::pmr::memory_resource *res) ->
+                    void { set_array_postgres(doc, name, result, index, type_element, res); };
                 postgres_to_doc_setter row_to_doc_setter;
                 row_to_doc_setter.setter = std::move(setter);
                 row_to_doc_setter.type = document_types::ARRAY;
@@ -451,6 +506,15 @@ namespace {
 } // namespace
 
 namespace tsl {
+    std::pmr::string gen_id(int64_t num, std::pmr::memory_resource* resource)
+    {
+        std::pmr::string res{std::to_string(num), resource};
+        while (res.size() < 24) {
+            res = "0" + res;
+        }
+        return res;
+    }
+
     docs_result postgres_to_docs(std::pmr::memory_resource *res, const pqxx::result &result) {
         const auto ncolumns = result.columns();
         const auto nrows = result.size();
@@ -465,10 +529,10 @@ namespace tsl {
             auto translator = postgres_to_doc(column.type());
             schema.emplace_back(translator.type, column.name());
 
-            auto wrapper = [translator = translator.setter, index = counter++, name = column.name()](
+            auto wrapper = [translator = translator.setter, index = counter++, name = std::string("/") + column.name(), resource = res](
                 components::document::document_ptr doc,
                 const pqxx::row &row) -> void {
-                translator(doc, name, row, index);
+                translator(doc, name, row, index, resource);
             };
             postgres_row_to_doc_translators.push_back(std::move(wrapper));
         }
@@ -498,7 +562,8 @@ namespace tsl {
 
     doc_result logical_replication_to_docs(std::pmr::memory_resource *res, int16_t num_columns,
                                            const std::vector<std::pair<std::string, int32_t> > &columns,
-                                           const std::vector<std::string> &result) {
+                                           const std::vector<std::string> &result,
+                                           postgre_sql_type_operation operation) {
         std::vector<logical_replication_to_otterbrix_doc> postgres_row_to_doc_translators;
         postgres_row_to_doc_translators.reserve(num_columns);
         std::vector<column_info> schema;
@@ -509,9 +574,9 @@ namespace tsl {
             auto translator = logical_replication_to_doc(columns[i].second);
             schema.emplace_back(translator.type, columns[i].first);
 
-            auto wrapper = [translator = translator.setter, index = i, name = columns[i].first](
+            auto wrapper = [translator = translator.setter, index = i, name = std::string("/") + columns[i].first, resource = res](
                                components::document::document_ptr doc,
-                               const std::vector<std::string> &result) -> void { translator(doc, name, result, index); };
+                               const std::vector<std::string> &result) -> void { translator(doc, name, result, index, resource); };
             postgres_row_to_doc_translators.push_back(std::move(wrapper));
         }
 
@@ -524,8 +589,13 @@ namespace tsl {
         }
 
         components::document::document_ptr doc =  components::document::make_document(res);
+        document_ptr work_doc = doc;
+        if (operation == postgre_sql_type_operation::UPDATE) {
+            doc->set_dict("$set");
+            work_doc = doc->get_dict("$set");
+        }
         for (const auto &translator: postgres_row_to_doc_translators) {
-            translator(doc, result);
+            translator(work_doc, result);
         }
 
         return {std::move(schema), std::move(doc)};

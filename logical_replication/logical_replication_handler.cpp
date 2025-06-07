@@ -79,6 +79,8 @@ logical_replication_handler::logical_replication_handler(
     const std::string &file_name_,
     const std::string &url_log_,
     std::vector<std::string> &tables_array_,
+    ReaderWriterQueue<result_node> &queue_,
+    std::pmr::memory_resource* resource_,
     size_t max_block_size_,
     const bool user_managed_slot_,
     const std::string user_snapshot_)
@@ -91,7 +93,9 @@ logical_replication_handler::logical_replication_handler(
       publication_name(get_publication_name(postgres_database_, postgres_name_)),
       user_managed_slot(user_managed_slot_),
       user_snapshot(user_snapshot_),
-      max_block_size(max_block_size_)
+      max_block_size(max_block_size_),
+      current_otterbrix_service(queue_),
+      resource(resource_)
 {
     if (tables_names.empty()) {
         throw exception(error_codes::BAD_ARGUMENTS, "Can not have tables list");
@@ -99,7 +103,7 @@ logical_replication_handler::logical_replication_handler(
 
     check_replication_slot(replication_slot);
 
-    current_logger.log_to_file(log_level::DEBUG, fmt::format(
+    current_logger.log_to_file(log_level::DEBUGER, fmt::format(
                "Using replication slot {} and publication {}",
                replication_slot,
                double_quote_string(publication_name)));
@@ -119,7 +123,7 @@ void logical_replication_handler::start_synchronization() {
     auto tmp_connection = std::make_shared<postgres::сonnection>(connection_dsn, &current_logger);
 
     auto initial_sync = [&]() {
-        current_logger.log_to_file(log_level::DEBUG, "Starting tables sync load");
+        current_logger.log_to_file(log_level::DEBUGER, "Starting tables sync load");
 
         try
         {
@@ -141,7 +145,7 @@ void logical_replication_handler::start_synchronization() {
         }
         catch (exception &e)
         {
-            current_logger.log_to_file(log_level::ERROR, e.what());
+            current_logger.log_to_file(log_level::ERR, e.what());
         }
     };
 
@@ -164,8 +168,10 @@ void logical_replication_handler::start_synchronization() {
         publication_name,
         start_lsn,
         max_block_size,
-        &current_logger);
-    current_logger.log_to_file(log_level::DEBUG, "Consumer created");
+        &current_logger,
+        &current_otterbrix_service,
+        resource);
+    current_logger.log_to_file(log_level::DEBUGER, "Consumer created");
 }
 
 logical_replication_handler::consumer_ptr logical_replication_handler::get_consumer()
@@ -201,7 +207,7 @@ void logical_replication_handler::create_publication(pqxx::nontransaction &tx) {
         try
         {
             tx.exec(query_str);
-            current_logger.log_to_file(log_level::DEBUG, fmt::format(
+            current_logger.log_to_file(log_level::DEBUGER, fmt::format(
                        "Created publication {} with tables: {}", publication_name, tables_names));
         }
         catch (const std::exception& e)
@@ -209,7 +215,7 @@ void logical_replication_handler::create_publication(pqxx::nontransaction &tx) {
             throw exception(error_codes::LOGICAL_ERROR, fmt::format("While creating publication {}", e.what()));
         }
     } else {
-        current_logger.log_to_file(log_level::DEBUG, fmt::format("Using publication {}", publication_name));
+        current_logger.log_to_file(log_level::DEBUGER, fmt::format("Using publication {}", publication_name));
     }
 }
 
@@ -228,7 +234,7 @@ bool logical_replication_handler::has_replication_slot(pqxx::nontransaction & tx
 
     start_lsn = result[0][2].as<std::string>();
 
-    current_logger.log_to_file(log_level::DEBUG, fmt::format(
+    current_logger.log_to_file(log_level::DEBUGER, fmt::format(
                "Replication slot {} already exists.", slot_name));
     return true;
 }
@@ -278,10 +284,10 @@ void logical_replication_handler::load_from_snapshot(postgres::сonnection &conn
 
     query_str = fmt::format("SELECT * FROM ONLY {}", table_name);
 
-    current_logger.log_to_file(log_level::DEBUG, fmt::format("Loading PostgreSQL table {}", table_name));
+    current_logger.log_to_file(log_level::DEBUGER, fmt::format("Loading PostgreSQL table {}", table_name));
 
     // Getting data from the database to start syncing
     pqxx::result result = tx->exec(query_str);
 
-    current_otterbrix_service.data_handler(result, table_name, database_name);
+    current_otterbrix_service.data_handler(result, table_name, database_name, resource);
 }

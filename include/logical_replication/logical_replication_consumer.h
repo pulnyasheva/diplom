@@ -19,7 +19,9 @@ public:
     const std::string & publication_name_,
     const std::string & start_lsn,
     size_t max_block_size_,
-    logger *logger_);
+    logger *logger_,
+    otterbrix_service *otterbrix_service,
+    std::pmr::memory_resource* resource_);
 
     bool consume();
 
@@ -60,5 +62,6 @@ private:
 
     size_t max_block_size;
 
-    otterbrix_service current_otterbrix_service;
+    otterbrix_service *current_otterbrix_service;
+    std::pmr::memory_resource* resource;
 };

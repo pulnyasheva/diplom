@@ -7,8 +7,6 @@ find_package(libpqxx REQUIRED)
 find_package(Boost REQUIRED)
 find_package(CURL REQUIRED)
 find_package(otterbrix REQUIRED)
-find_package(fmt REQUIRED)
-find_package(spdlog REQUIRED)
 
 include_directories(include)
 
@@ -37,6 +35,11 @@ add_executable(diplom postgres/сonnection.cpp
         include/postgres/postgres_settings.h
         postgres/postgres_settings.cpp
         include/otterbrix/document_types.h
+        otterbrix/otterbrix_layer.cpp
+        include/lock_free_queue/readerwriterqueue.h
+        include/lock_free_queue/atomicops.h
+        main.cpp
+        include/otterbrix/otterbrix_layer.h
 )
 
 target_link_libraries(diplom PUBLIC libpqxx::pqxx fmt::fmt otterbrix::otterbrix CURL::libcurl spdlog::spdlog)

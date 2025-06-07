@@ -9,6 +9,7 @@
 #include <pqxx/pqxx>
 
 #include <otterbrix/document_types.h>
+#include <postgres/postgres_types.h>
 
 #include <components/document/document.hpp>
 
@@ -31,9 +32,12 @@ namespace tsl {
         std::vector<document_ptr> document;
     };
 
+    std::pmr::string gen_id(int64_t num, std::pmr::memory_resource* resource);
+
     doc_result logical_replication_to_docs(std::pmr::memory_resource *res, int16_t num_columns,
                                            const std::vector<std::pair<std::string, int32_t> > &columns,
-                                           const std::vector<std::string> &result);
+                                           const std::vector<std::string> &result,
+                                           postgre_sql_type_operation operation);
 
     docs_result postgres_to_docs(std::pmr::memory_resource *res, const pqxx::result &result);
 

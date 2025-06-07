@@ -8,7 +8,7 @@ scheduler::scheduler(logger *logger_)
 }
 
 std::packaged_task<bool()> scheduler::createTask(const std::string& name, std::function<bool()> func) {
-    current_logger->log_to_file(log_level::DEBUG, fmt::format("Create task {}", name));
+    current_logger->log_to_file(log_level::DEBUGER, fmt::format("Create task {}", name));
     return std::packaged_task(func);
 }
 

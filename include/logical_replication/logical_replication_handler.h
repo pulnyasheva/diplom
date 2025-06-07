@@ -27,6 +27,8 @@ public:
             const std::string & file_name_,
             const std::string &url_log_,
             std::vector<std::string> & tables_array_,
+            ReaderWriterQueue<result_node> &queue_,
+            std::pmr::memory_resource* resource_,
             size_t max_block_size_,
             bool user_managed_slot = false,
             std::string user_snapshot = "");
@@ -67,4 +69,5 @@ private:
     consumer_ptr consumer;
 
     otterbrix_service current_otterbrix_service;
+    std::pmr::memory_resource* resource;
 };

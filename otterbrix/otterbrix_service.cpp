@@ -24,43 +24,60 @@ void otterbrix_service::data_handler(postgre_sql_type_operation type_operation,
                                     const std::vector<int32_t> &primary_key,
                                     const std::vector<std::string> &result,
                                     const std::vector<std::pair<std::string, int32_t>> &columns,
-                                    const std::unordered_map<int32_t, std::string> &old_value) {
-    auto resource = std::pmr::synchronized_pool_resource();
+                                    const std::unordered_map<int32_t, std::string> &old_value,
+                                    std::pmr::memory_resource* resource) {
     switch (type_operation) {
         case postgre_sql_type_operation::INSERT: {
-            tsl::doc_result doc_result = tsl::logical_replication_to_docs(&resource, columns.size(), columns, result);
-            auto insert_node = logical_plan::make_node_insert(std::pmr::get_default_resource(),
+            tsl::doc_result doc_result = tsl::logical_replication_to_docs(resource, columns.size(), columns, result, type_operation);
+            auto insert_node = logical_plan::make_node_insert(resource,
                                                               {database_name, table_name},
                                                               doc_result.document);
+            std::cout << "create node insert" << std::endl;
+            result_node result_node;
+            result_node.node = insert_node;
+            result_node.has_parameter = false;
+            queue.enqueue(result_node);
             break;
         }
         case postgre_sql_type_operation::UPDATE: {
-            tsl::doc_result doc_result = tsl::logical_replication_to_docs(&resource, columns.size(), columns, result);
+            tsl::doc_result doc_result = tsl::logical_replication_to_docs(resource, columns.size(), columns, result, type_operation);
             std::pair<expressions::expression_ptr, logical_plan::parameter_node_ptr> expression;
             if (!old_value.empty()) {
-                expression = make_expression_match(&resource, old_value, columns);
+                expression = make_expression_match(resource, old_value, columns);
             } else {
-                expression = make_expression_match(&resource, primary_key, result, columns);
+                expression = make_expression_match(resource, primary_key, result, columns);
             }
 
-            auto node_match = logical_plan::make_node_match(&resource,
+            auto node_match = logical_plan::make_node_match(resource,
                                                             {database_name, table_name},
                                                             std::move(expression.first));
-            auto node_update = logical_plan::make_node_update_one(&resource,
+            auto node_update = logical_plan::make_node_update_one(resource,
                                                                   {database_name, table_name},
                                                                   node_match,
                                                                   doc_result.document);
+            std::cout << "create node update" << std::endl;
+            result_node result_node;
+            result_node.node = node_update;
+            result_node.parameter = expression.second;
+            result_node.has_parameter = true;
+            queue.enqueue(result_node);
             break;
         }
         case postgre_sql_type_operation::DELETE: {
             std::pair<expressions::expression_ptr, logical_plan::parameter_node_ptr> expression
-                = make_expression_match(&resource, primary_key, result, columns);
-            auto node_match = logical_plan::make_node_match(&resource,
+                = make_expression_match(resource, primary_key, result, columns);
+            auto node_match = logical_plan::make_node_match(resource,
                                                             {database_name, table_name},
                                                             std::move(expression.first));
-            auto node_delete = logical_plan::make_node_delete_one(&resource,
+            auto node_delete = logical_plan::make_node_delete_one(resource,
                                                               {database_name, table_name},
                                                               node_match);
+            std::cout << "create node delete" << std::endl;
+            result_node result_node;
+            result_node.node = node_delete;
+            result_node.parameter = expression.second;
+            result_node.has_parameter = true;
+            queue.enqueue(result_node);
             break;
         }
     }
@@ -68,14 +85,20 @@ void otterbrix_service::data_handler(postgre_sql_type_operation type_operation,
 
 void otterbrix_service::data_handler(pqxx::result &result,
                                      const std::string &table_name,
-                                     const std::string &database_name) {
-    auto resource = std::pmr::synchronized_pool_resource();
-    tsl::docs_result docs_result = tsl::postgres_to_docs(&resource, result);
+                                     const std::string &database_name,
+                                     std::pmr::memory_resource* resource) {
+    tsl::docs_result docs_result = tsl::postgres_to_docs(resource, result);
 
     for (auto doc: docs_result.document) {
-        auto insert_node = logical_plan::make_node_insert(std::pmr::get_default_resource(),
+        auto insert_node = logical_plan::make_node_insert(resource,
                                                           {database_name, table_name},
                                                           doc);
+        std::cout << database_name << std::endl;
+        std::cout << "create insert node snapshot" << std::endl;
+        result_node result_node;
+        result_node.node = insert_node;
+        result_node.has_parameter = false;
+        queue.enqueue(result_node);
     }
 }
 
@@ -93,11 +116,16 @@ std::pair<expressions::expression_ptr, logical_plan::parameter_node_ptr> otterbr
     size_t primary_key_size = primary_key.size();
     if (primary_key_size == 1) {
         auto params = logical_plan::make_parameter_node(resource);
-        params->add_parameter<std::string>(id_par{1}, primary_key[0].second);
-        auto expr = components::expressions::make_compare_expression(resource,
-                                                                     compare_type::eq,
-                                                                     key{columns[primary_key[0].first].first},
-                                                                     id_par{1});
+        if (columns[primary_key[0].first].first == "_id") {
+            std::cout << "parameter _id" << std::endl;
+            params->add_parameter(id_par{1}, tsl::gen_id(std::stoll(primary_key[0].second), resource));
+        } else {
+            params->add_parameter(id_par{1}, primary_key[0].second);
+        }
+        auto expr = make_compare_expression(resource,
+                                            compare_type::eq,
+                                            key{columns[primary_key[0].first].first},
+                                            id_par{1});
         return {expr, params};
     }
 
@@ -144,11 +172,16 @@ std::pair<expressions::expression_ptr, logical_plan::parameter_node_ptr> otterbr
     size_t primary_key_size = primary_key.size();
     if (primary_key_size == 1) {
         auto params = logical_plan::make_parameter_node(resource);
-        params->add_parameter(id_par{1}, result[primary_key[0]]);
-        auto expr = components::expressions::make_compare_expression(resource,
-                                                                     compare_type::eq,
-                                                                     key{columns[primary_key[0]].first},
-                                                                     id_par{1});
+        if (columns[primary_key[0]].first == "_id") {
+            std::cout << "parameter _id" << std::endl;
+            params->add_parameter(id_par{1}, tsl::gen_id(std::stoll(result[primary_key[0]]), resource));
+        } else {
+            params->add_parameter(id_par{1}, result[primary_key[0]]);
+        }
+        auto expr = make_compare_expression(resource,
+                                            compare_type::eq,
+                                            key{std::string("/") + columns[primary_key[0]].first},
+                                            id_par{1});
         return {expr, params};
     }
 
