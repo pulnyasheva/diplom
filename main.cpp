@@ -11,7 +11,7 @@
 #include <integration/cpp/wrapper_dispatcher.hpp>
 
 int main() {
-    std::string conninfo = "postgresql://postgres:postgres@172.29.190.7:5432/postgres";
+    std::string conninfo = "postgresql://postgres:postgres@postgres:5432/postgres";
     std::string postgres_database = "postgres";
     std::string postgres_name = "example";
     std::vector<std::string> tables = {"public.example1", "public.example2"};

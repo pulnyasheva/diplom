@@ -2,6 +2,7 @@ version: '3.1'
 ---
 services:
   postgres:
+    container_name: postgres
     image: postgres:latest
     command: -c config_file=/etc/postgresql.conf
     restart: always
@@ -14,3 +15,20 @@ services:
     volumes:
       - ./postgres_init/init:/docker-entrypoint-initdb.d
       - ./postgres_init/postgresql.conf:/etc/postgresql.conf
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile-service
+    container_name: otterstax_app
+    depends_on:
+      - postgres
+
+  generator:
+    build:
+      context: .
+      dockerfile: Dockerfile-generate
+    container_name: generate_container
+    depends_on:
+      - app
+      - postgres
