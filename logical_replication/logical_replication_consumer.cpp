@@ -190,7 +190,6 @@ bool logical_replication_consumer::consume()
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
                 continue;
             }
-            // std::cout << "bytes read" << std::endl;
 
             const char *data = copy_buf;
             size_t len = static_cast<size_t>(bytes_read);
@@ -211,7 +210,7 @@ bool logical_replication_consumer::consume()
                 bool reply_required = (data[1 + 8 + 8] == 1);
 
                 if (reply_required) {
-                    current_logger->log_to_file(log_level::ERR, fmt::format("Sending immediate feedback. Processed LSN: {}", lsn_to_string(last_processed_lsn)));
+                    current_logger->log_to_file(log_level::DEBUGER, fmt::format("Sending immediate feedback. Processed LSN: {}", lsn_to_string(last_processed_lsn)));
                     send_standby_status_update(conn, last_received_lsn, last_processed_lsn, last_processed_lsn, false);
                     last_feedback_time = std::chrono::steady_clock::now();
                 }
@@ -234,7 +233,7 @@ bool logical_replication_consumer::consume()
                 const char* logical_data_start = data + 1 + 8 + 8 + 8;
                 size_t logical_data_len = len - (1 + 8 + 8 + 8);
 
-                current_logger->log_to_file(log_level::INFO, fmt::format(
+                current_logger->log_to_file(log_level::DEBUGER, fmt::format(
                                                 "Received XLogData. LSN Range: [{}, {}). Size: {}",
                                                 lsn_to_string(wal_start_lsn), lsn_to_string(wal_end_lsn),
                                                 logical_data_len));
@@ -284,7 +283,7 @@ bool logical_replication_consumer::consume()
 
             auto now = std::chrono::steady_clock::now();
             if (now - last_feedback_time >= feedback_interval) {
-                current_logger->log_to_file(log_level::INFO, fmt::format("Sending periodic feedback. Processed LSN: {}", lsn_to_string(last_processed_lsn)));
+                current_logger->log_to_file(log_level::DEBUGER, fmt::format("Sending periodic feedback. Processed LSN: {}", lsn_to_string(last_processed_lsn)));
                 send_standby_status_update(conn, last_received_lsn, last_processed_lsn, last_processed_lsn, false);
                 last_feedback_time = now;
             }

@@ -14,7 +14,7 @@ int main() {
     std::string conninfo = "postgresql://postgres:postgres@172.29.190.7:5432/postgres";
     std::string postgres_database = "postgres";
     std::string postgres_name = "example";
-    std::vector<std::string> tables = {"public.students"};
+    std::vector<std::string> tables = {"public.example1", "public.example2"};
     std::string file_name = "log.txt";
     std::string url_log = "";
     const char* path = "/tmp/test_collection_sql/base";
@@ -36,9 +36,7 @@ int main() {
         100);
 
     replication_handler.start_synchronization();
-    std::cout << "success synchronization" << std::endl;
     std::thread producer_thread(&logical_replication_handler::run_consumer, &replication_handler);
 
     layer::consumer(postgres_database, tables, file_name, otterbrix_service, queue);
-    std::cout << "end" << std::endl;
 }

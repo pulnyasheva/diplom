@@ -12,6 +12,10 @@
 #include <components/expressions/forward.hpp>
 #include <lock_free_queue/readerwriterqueue.h>
 #include <integration/cpp/otterbrix.hpp>
+#include <components/logical_plan/node.hpp>
+#include <components/logical_plan/node_match.hpp>
+#include <components/logical_plan/node_insert.hpp>
+#include <components/log/log.hpp>
 
 using namespace moodycamel;
 
@@ -57,6 +61,12 @@ private:
     std::pmr::memory_resource* resource,
     const std::unordered_map<int32_t, std::string> &old_value,
     const std::vector<std::pair<std::string, int32_t>> &columns);
+
+    void add_parameter_value(components::logical_plan::parameter_node_ptr &params,
+                             unsigned short num,
+                             const std::string &name,
+                             const std::string &value,
+                             std::pmr::memory_resource *resource);
 
     ReaderWriterQueue<result_node> &queue;
 };

@@ -32,7 +32,6 @@ void otterbrix_service::data_handler(postgre_sql_type_operation type_operation,
             auto insert_node = logical_plan::make_node_insert(resource,
                                                               {database_name, table_name},
                                                               doc_result.document);
-            std::cout << "create node insert" << std::endl;
             result_node result_node;
             result_node.node = insert_node;
             result_node.has_parameter = false;
@@ -55,7 +54,6 @@ void otterbrix_service::data_handler(postgre_sql_type_operation type_operation,
                                                                   {database_name, table_name},
                                                                   node_match,
                                                                   doc_result.document);
-            std::cout << "create node update" << std::endl;
             result_node result_node;
             result_node.node = node_update;
             result_node.parameter = expression.second;
@@ -72,7 +70,6 @@ void otterbrix_service::data_handler(postgre_sql_type_operation type_operation,
             auto node_delete = logical_plan::make_node_delete_one(resource,
                                                               {database_name, table_name},
                                                               node_match);
-            std::cout << "create node delete" << std::endl;
             result_node result_node;
             result_node.node = node_delete;
             result_node.parameter = expression.second;
@@ -93,8 +90,6 @@ void otterbrix_service::data_handler(pqxx::result &result,
         auto insert_node = logical_plan::make_node_insert(resource,
                                                           {database_name, table_name},
                                                           doc);
-        std::cout << database_name << std::endl;
-        std::cout << "create insert node snapshot" << std::endl;
         result_node result_node;
         result_node.node = insert_node;
         result_node.has_parameter = false;
@@ -116,12 +111,7 @@ std::pair<expressions::expression_ptr, logical_plan::parameter_node_ptr> otterbr
     size_t primary_key_size = primary_key.size();
     if (primary_key_size == 1) {
         auto params = logical_plan::make_parameter_node(resource);
-        if (columns[primary_key[0].first].first == "_id") {
-            std::cout << "parameter _id" << std::endl;
-            params->add_parameter(id_par{1}, tsl::gen_id(std::stoll(primary_key[0].second), resource));
-        } else {
-            params->add_parameter(id_par{1}, primary_key[0].second);
-        }
+        add_parameter_value(params, 1, columns[primary_key[0].first].first, primary_key[0].second, resource);
         auto expr = make_compare_expression(resource,
                                             compare_type::eq,
                                             key{columns[primary_key[0].first].first},
@@ -140,7 +130,7 @@ std::pair<expressions::expression_ptr, logical_plan::parameter_node_ptr> otterbr
                                                                         compare_type::eq,
                                                                         key{columns[primary_key[index].first].first},
                                                                         id_par{static_cast<unsigned short>(index + 1)});
-        params->add_parameter(id_par{static_cast<unsigned short>(index + 1)}, primary_key[index].second);
+        add_parameter_value(params, static_cast<unsigned short>(index + 1), columns[primary_key[index].first].first, primary_key[index].second, resource);
         expr->append_child(expr_union);
         expr->append_child(expr_eq);
         expr = expr_union;
@@ -152,12 +142,12 @@ std::pair<expressions::expression_ptr, logical_plan::parameter_node_ptr> otterbr
                                                                          compare_type::eq,
                                                                          key{columns[primary_key[index].first].first},
                                                                          id_par{static_cast<unsigned short>(index + 1)});
-    params->add_parameter(id_par{static_cast<unsigned short>(index + 1)}, primary_key[index].second);
+    add_parameter_value(params, static_cast<unsigned short>(index + 1), columns[primary_key[index].first].first, primary_key[index].second, resource);
     auto expr_eq_right = components::expressions::make_compare_expression(resource,
                                                                           compare_type::eq,
                                                                           key{columns[primary_key[index + 1].first].first},
                                                                           id_par{static_cast<unsigned short>(index + 2)});
-    params->add_parameter(id_par{static_cast<unsigned short>(index + 2)}, primary_key[index + 1].second);
+    add_parameter_value(params, static_cast<unsigned short>(index + 2), columns[primary_key[index + 1].first].first, primary_key[index + 1].second, resource);
     expr->append_child(expr_eq_left);
     expr->append_child(expr_eq_right);
 
@@ -172,15 +162,10 @@ std::pair<expressions::expression_ptr, logical_plan::parameter_node_ptr> otterbr
     size_t primary_key_size = primary_key.size();
     if (primary_key_size == 1) {
         auto params = logical_plan::make_parameter_node(resource);
-        if (columns[primary_key[0]].first == "_id") {
-            std::cout << "parameter _id" << std::endl;
-            params->add_parameter(id_par{1}, tsl::gen_id(std::stoll(result[primary_key[0]]), resource));
-        } else {
-            params->add_parameter(id_par{1}, result[primary_key[0]]);
-        }
+        add_parameter_value(params, 1, columns[primary_key[0]].first, result[primary_key[0]], resource);
         auto expr = make_compare_expression(resource,
                                             compare_type::eq,
-                                            key{std::string("/") + columns[primary_key[0]].first},
+                                            key{columns[primary_key[0]].first},
                                             id_par{1});
         return {expr, params};
     }
@@ -196,7 +181,7 @@ std::pair<expressions::expression_ptr, logical_plan::parameter_node_ptr> otterbr
                                                                         compare_type::eq,
                                                                         key{columns[primary_key[index]].first},
                                                                         id_par{static_cast<unsigned short>(index + 1)});
-        params->add_parameter(id_par{static_cast<unsigned short>(index + 1)}, result[primary_key[index]]);
+        add_parameter_value(params, static_cast<unsigned short>(index + 1), columns[primary_key[index]].first, result[primary_key[index]], resource);
         expr->append_child(expr_union);
         expr->append_child(expr_eq);
         expr = expr_union;
@@ -208,14 +193,26 @@ std::pair<expressions::expression_ptr, logical_plan::parameter_node_ptr> otterbr
                                                                          compare_type::eq,
                                                                          key{columns[primary_key[index]].first},
                                                                          id_par{static_cast<unsigned short>(index + 1)});
-    params->add_parameter(id_par{static_cast<unsigned short>(index + 1)}, result[primary_key[index]]);
+    add_parameter_value(params, static_cast<unsigned short>(index + 1), columns[primary_key[index]].first, result[primary_key[index]], resource);
     auto expr_eq_right = components::expressions::make_compare_expression(resource,
                                                                           compare_type::eq,
                                                                           key{columns[primary_key[index + 1]].first},
                                                                           id_par{static_cast<unsigned short>(index + 2)});
-    params->add_parameter(id_par{static_cast<unsigned short>(index + 2)}, result[primary_key[index + 1]]);
+    add_parameter_value(params, static_cast<unsigned short>(index + 2), columns[primary_key[index + 1]].first, result[primary_key[index + 1]], resource);
     expr->append_child(expr_eq_left);
     expr->append_child(expr_eq_right);
 
     return {expr_result, params};
+}
+
+void otterbrix_service::add_parameter_value(logical_plan::parameter_node_ptr &params,
+                                            unsigned short num,
+                                            const std::string &name,
+                                            const std::string &value,
+                                            std::pmr::memory_resource *resource) {
+    if (name == "_id") {
+        params->add_parameter(id_par{num}, tsl::gen_id(std::stoll(value), resource));
+    } else {
+        params->add_parameter(id_par{num}, value);
+    }
 }

@@ -133,7 +133,6 @@ void logical_replication_parser::parse_change_data(const char *message,
                     old_result[column_idx] = value;
                 else
                     result[column_idx] = value;
-                // std::cout << "value: " << value << std::endl;
                 break;
             }
             case 'u': /// Values that are too large (TOAST).
@@ -204,7 +203,6 @@ void logical_replication_parser::parse_binary_data(const char *replication_messa
     current_logger->log_to_file(log_level::DEBUGER, fmt::format("Message type: {}, lsn string: {}", type, *current_lsn));
 
     current_logger->log_to_file(log_level::DEBUGER, fmt::format("Type operation: {}", type));
-    // std::cout << "Type operation: " << type << std::endl;
     switch (type)
     {
         case 'B': // Begin

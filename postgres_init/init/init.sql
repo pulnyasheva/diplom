@@ -1,23 +1,32 @@
-CREATE TYPE student_status AS ENUM ('active', 'graduate', 'expelled');
-
-CREATE TYPE passport_type AS (
-    passport_number VARCHAR(20),
-    issue_date DATE,
-    expiration_date DATE
-    );
-
-CREATE TABLE students
+CREATE TABLE example1
 (
-    first_name  VARCHAR(50)         NOT NULL,
-    last_name   VARCHAR(50)         NOT NULL,
-    _id         SERIAL PRIMARY KEY,
-    age         INT CHECK (age > 0),
-    email       VARCHAR(100)
+    _id            INT PRIMARY KEY,
+    varchar_field1 VARCHAR(50),
+    varchar_field2 VARCHAR(100),
+    int_field      INT,
+    double_field   DOUBLE PRECISION,
+    text_field     TEXT,
+    bit_field      BIT(1),
+    bool_field     BOOLEAN,
+    null_value     TEXT
 );
 
-INSERT INTO students (first_name, last_name, age, email)
+CREATE TABLE example2
+(
+    _id             INT PRIMARY KEY,
+    int_array       INT[]
+);
+
+INSERT INTO example1 (varchar_field1, varchar_field2, int_field, double_field, text_field, bit_field, bool_field)
 VALUES
-    ('John', 'Doe', 20, 'john.doe@example.com'),
-    ('Jane', 'Smith', 22, 'jane.smith@example.com'),
-    ('Alice', 'Johnson', 19, 'alice.johnson@example.com'),
-    ('Bob', 'Brown', 21, 'bob.brown@example.com');
+    ('John', 'Doe', 20, 20.1, 'Sample text for John', B'1', TRUE),
+    ('Jane', 'Smith', 22, 20.2, 'Sample text for Jane', B'0', FALSE),
+    ('Alice', 'Johnson', 19, 20.3, 'Sample text for Alice', B'1', TRUE),
+    ('Bob', 'Brown', 21, 20.4, 'Sample text for Bob', B'0', FALSE);
+
+INSERT INTO example2 (int_array)
+VALUES
+    (ARRAY[1, 2, 3]),
+    (ARRAY[4, 5]),
+    (ARRAY[6, 7, 8, 9]),
+    (ARRAY[10]);

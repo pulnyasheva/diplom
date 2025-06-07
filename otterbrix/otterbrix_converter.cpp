@@ -33,7 +33,6 @@ namespace {
              std::pmr::memory_resource *res)
     {
         if (name == "/_id") {
-            std::cout << "_id " << std::endl;
             doc->set(name, tsl::gen_id(value, res));
             return true;
         }
@@ -235,7 +234,7 @@ namespace {
         auto translator = type_to_translator_array(type);
 
         for (int i = 0; i < values.size(); i++) {
-            translator(doc->get_array(name), std::to_string(i), std::vector{values[i]}, 0, resource);
+            translator(doc->get_array(name), std::string("/") + std::to_string(i), std::vector{values[i]}, 0, resource);
         }
     }
 
@@ -251,7 +250,6 @@ namespace {
         }
         int64_t int_value = result[index].get<int64_t>().value();
         if (!set_id(doc, name, int_value, resource)) {
-            std::cout << "name " << name << " value " << int_value << std::endl;
             doc->set<int8_t>(name, int_value);
         }
     }
@@ -268,7 +266,6 @@ namespace {
         }
         int64_t int_value = result[index].get<int64_t>().value();
         if (!set_id(doc, name, int_value, resource)) {
-            std::cout << "name " << name << "value " << int_value << std::endl;
             doc->set<int16_t>(name, int_value);
         }
     }
@@ -301,7 +298,6 @@ namespace {
         }
         int64_t int_value = result[index].get<int64_t>().value();
         if (!set_id(doc, name, int_value, resource)) {
-            std::cout << "name " << name << "value " << int_value << std::endl;
             doc->set<int64_t>(name, int_value);
         }
     }
@@ -346,7 +342,7 @@ namespace {
             return;
         }
         bool bool_value = result[index].get<bool>().value();
-        doc->set<bool>(name, false);
+        doc->set<bool>(name, bool_value);
     }
 
     void
@@ -360,7 +356,6 @@ namespace {
             return;
         }
         std::string string_value = result[index].c_str();
-        std::cout << "name " << name << " value " << string_value << std::endl;
         doc->set<std::string>(name, string_value);
     }
 
@@ -382,7 +377,7 @@ namespace {
         auto translator = type_to_translator_array(type);
 
         for (int i = 0; i < values.size(); i++) {
-            translator(doc->get_array(name), std::to_string(i), std::vector{values[i]}, 0, resource);
+            translator(doc->get_array(name), std::string("/") + std::to_string(i), std::vector{values[i]}, 0, resource);
         }
     }
 
@@ -410,6 +405,7 @@ namespace {
                 return {document_types::INT64, set_int64};
             }
             case postgres_types::BIT:
+            case postgres_types::BOOL:
             {
                 return {document_types::BOOL, set_bit};
             }
@@ -464,6 +460,7 @@ namespace {
                 return {document_types::INT64, set_int64_postgres};
             }
             case postgres_types::BIT:
+            case postgres_types::BOOL:
             {
                 return {document_types::BOOL, set_bit_postgres};
             }
