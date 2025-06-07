@@ -25,7 +25,6 @@ add_executable(diplom postgres/сonnection.cpp
         common/scheduler.cpp
         include/logical_replication/logical_replication_parser.h
         logical_replication/logical_replication_parser.cpp
-        test.cpp
         include/otterbrix/otterbrix_converter.h
         otterbrix/otterbrix_converter.cpp
         include/postgres/postgres_types.h

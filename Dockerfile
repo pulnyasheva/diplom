@@ -23,7 +23,7 @@ RUN pip3 install --no-cache-dir --break-system-packages conan==2.15.0 'cmake<4.0
 RUN rm /bin/sh && ln -s /bin/bash /bin/sh
 
 WORKDIR /app/build
-COPY conanfile.py ./conanfile.py
+COPY ./conanfile.py ./conanfile.py
 RUN conan install conanfile.py --build missing -s build_type=Release -s compiler.cppstd=gnu20
 
 WORKDIR /app
