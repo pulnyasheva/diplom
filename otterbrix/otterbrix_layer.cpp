@@ -34,7 +34,7 @@ namespace layer {
         logger log = logger(file_name, "");
         int counter = 0;
         while (true) {
-            if (counter == 100) {
+            if (counter == 10) {
                 counter = 0;
                 for (auto &table : tables_array) {
                     auto cursor_p = otterbrix_service->dispatcher()->execute_sql(
