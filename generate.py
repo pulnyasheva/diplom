@@ -61,14 +61,14 @@ def populate_tables(conn):
             random_array()
         ))
 
-        if (i + 1) % 10 == 0:
+        if (i + 1) % 90 == 0:
             cursor.execute("""
                 UPDATE example1
                 SET varchar_field1 = %s
                 WHERE _id = (SELECT _id FROM example1 ORDER BY RANDOM() LIMIT 1);
             """, (random_string(10),))
 
-        if (i + 1) % 15 == 0:
+        if (i + 1) % 40 == 0:
             cursor.execute("""
                 DELETE FROM example1
                 WHERE _id = (SELECT _id FROM example1 ORDER BY RANDOM() LIMIT 1);
