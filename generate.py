@@ -77,7 +77,7 @@ def populate_tables(conn):
 
         conn.commit()
         i += 1
-        time.sleep(2)
+        time.sleep(1)
 
     cursor.close()
 
@@ -85,6 +85,6 @@ if __name__ == '__main__':
     conn = connect_db()
     if conn:
         try:
-         populate_tables(conn)
+            populate_tables(conn)
         finally:
             conn.close()
