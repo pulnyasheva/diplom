@@ -29,8 +29,16 @@ logger::~logger() {
     }
 }
 
+void logger::log_to_console(log_level level, const std::string& message) {
+    if (level > LOG_LEVEL_PROJECT) {
+        return;
+    }
+
+    std::cout << get_current_time() << " [" << log_level_to_string(level) << "] " << message << std::endl;
+}
+
 void logger::log_to_file(log_level level, const std::string& message) {
-    if (level > current_log_level) {
+    if (level > LOG_LEVEL_PROJECT) {
         return;
     }
 
@@ -41,7 +49,7 @@ void logger::log_to_file(log_level level, const std::string& message) {
 }
 
 void logger::log_to_url(log_level level, const std::string& message) {
-    if (level > current_log_level) {
+    if (level > LOG_LEVEL_PROJECT) {
         return;
     }
 

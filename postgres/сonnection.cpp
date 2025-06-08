@@ -27,7 +27,7 @@ namespace postgres
             }
             catch (const pqxx::broken_connection & e)
             {
-                current_logger->log_to_file(log_level::DEBUGER, fmt::format(
+                current_logger->log_to_console(log_level::DEBUGER, fmt::format(
                                 "Cannot retry to connection failure, attempt: {}/{}. Message: {}",
                                 attempt_ind, attempt_count, e.what()));
 
@@ -51,7 +51,7 @@ namespace postgres
         }
         catch (const pqxx::broken_connection & e)
         {
-            current_logger->log_to_file(log_level::DEBUGER, fmt::format("Unable to update connection: {}", e.what()));
+            current_logger->log_to_console(log_level::DEBUGER, fmt::format("Unable to update connection: {}", e.what()));
         }
     }
 
@@ -63,9 +63,9 @@ namespace postgres
             if (replication)
                 connection->set_session_var("default_transaction_isolation", "repeatable read");
 
-            current_logger->log_to_file(log_level::DEBUGER, fmt::format("New connection {}", connection_dsn));
+            current_logger->log_to_console(log_level::DEBUGER, fmt::format("New connection {}", connection_dsn));
         } catch (const std::exception& e) {
-            current_logger->log_to_file(log_level::ERR, fmt::format("Connection update failed: {}", e.what()));
+            current_logger->log_to_console(log_level::ERR, fmt::format("Connection update failed: {}", e.what()));
             throw;
         }
     }

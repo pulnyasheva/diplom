@@ -15,7 +15,7 @@ int main() {
     std::string postgres_database = "postgres";
     std::string postgres_name = "example";
     std::vector<std::string> tables = {"public.example1", "public.example2"};
-    std::string file_name = "log.txt";
+    std::string file_name = "";
     std::string url_log = "";
     const char* path = "/tmp/test_collection_sql/base";
 

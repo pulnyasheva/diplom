@@ -112,7 +112,7 @@ void logical_replication_parser::parse_change_data(const char *message,
 
     auto proccess_column_value = [&](int8_t identifier_data, int16_t column_idx)
     {
-        current_logger->log_to_file(log_level::DEBUGER, fmt::format("Identifier data: {}", identifier_data));
+        current_logger->log_to_console(log_level::DEBUGER, fmt::format("Identifier data: {}", identifier_data));
         switch (identifier_data)
         {
             case 'n': /// NULL
@@ -137,7 +137,7 @@ void logical_replication_parser::parse_change_data(const char *message,
             }
             case 'u': /// Values that are too large (TOAST).
             {
-                current_logger->log_to_file(log_level::WARN,
+                current_logger->log_to_console(log_level::WARN,
                             fmt::format("Values too large in column: {}", column_idx));
                 if (old_value)
                     old_result[column_idx] = emptyValue;
@@ -164,7 +164,7 @@ void logical_replication_parser::parse_change_data(const char *message,
             }
             default:
             {
-                current_logger->log_to_file(log_level::WARN, fmt::format("Unexpected identifier: {}", identifier_data));
+                current_logger->log_to_console(log_level::WARN, fmt::format("Unexpected identifier: {}", identifier_data));
                 break;
             }
         }
@@ -178,7 +178,7 @@ void logical_replication_parser::parse_change_data(const char *message,
         }
         catch (std::exception &e)
         {
-            current_logger->log_to_file(log_level::ERR,
+            current_logger->log_to_console(log_level::ERR,
                         fmt::format(
                             "Got error while receiving value for column {} with {}",
                             column_idx, e.what()));
@@ -200,9 +200,9 @@ void logical_replication_parser::parse_binary_data(const char *replication_messa
     // Skip '\x'
     size_t pos = 2;
     char type = parse_int8(replication_message, pos, size);
-    current_logger->log_to_file(log_level::DEBUGER, fmt::format("Message type: {}, lsn string: {}", type, *current_lsn));
+    current_logger->log_to_console(log_level::DEBUGER, fmt::format("Message type: {}, lsn string: {}", type, *current_lsn));
 
-    current_logger->log_to_file(log_level::DEBUGER, fmt::format("Type operation: {}", type));
+    current_logger->log_to_console(log_level::DEBUGER, fmt::format("Type operation: {}", type));
     switch (type)
     {
         case 'B': // Begin
@@ -216,11 +216,11 @@ void logical_replication_parser::parse_binary_data(const char *replication_messa
         {
             table_id = parse_int32(replication_message, pos, size);
             const auto & table_name = id_to_table_name[table_id];
-            current_logger->log_to_file(log_level::DEBUGER, fmt::format("Table name for insert: ", table_name));
+            current_logger->log_to_console(log_level::DEBUGER, fmt::format("Table name for insert: ", table_name));
 
             if (table_name.empty())
             {
-                current_logger->log_to_file(log_level::WARN, fmt::format("No table mapping for table id: {}.", table_id));
+                current_logger->log_to_console(log_level::WARN, fmt::format("No table mapping for table id: {}.", table_id));
                 return;
             }
 
@@ -236,10 +236,10 @@ void logical_replication_parser::parse_binary_data(const char *replication_messa
         {
             table_id = parse_int32(replication_message, pos, size);
             const auto & table_name = id_to_table_name[table_id];
-            current_logger->log_to_file(log_level::DEBUGER, fmt::format("Table name for update: ", table_name));
+            current_logger->log_to_console(log_level::DEBUGER, fmt::format("Table name for update: ", table_name));
 
             if (table_name.empty()) {
-                current_logger->log_to_file(log_level::WARN,
+                current_logger->log_to_console(log_level::WARN,
                             fmt::format("No table mapping for table id: {}.", table_id));
                 return;
             }
@@ -278,11 +278,11 @@ void logical_replication_parser::parse_binary_data(const char *replication_messa
         {
             table_id = parse_int32(replication_message, pos, size);
             const auto & table_name = id_to_table_name[table_id];
-            current_logger->log_to_file(log_level::DEBUGER, fmt::format("Table name for delete: ", table_name));
+            current_logger->log_to_console(log_level::DEBUGER, fmt::format("Table name for delete: ", table_name));
 
             if (table_name.empty())
             {
-                current_logger->log_to_file(log_level::WARN,
+                current_logger->log_to_console(log_level::WARN,
                             fmt::format("No table mapping for table id: {}.", table_id));
                 return;
             }
@@ -310,7 +310,7 @@ void logical_replication_parser::parse_binary_data(const char *replication_messa
         case 'R': // Relation
         {
             table_id = parse_int32(replication_message, pos, size);
-            current_logger->log_to_file(log_level::DEBUGER, fmt::format("Table id: {}", table_id));
+            current_logger->log_to_console(log_level::DEBUGER, fmt::format("Table id: {}", table_id));
 
             std::string shema_namespace;
             std::string shema_name;
@@ -323,7 +323,7 @@ void logical_replication_parser::parse_binary_data(const char *replication_messa
             else
                 table_name = shema_name;
 
-            current_logger->log_to_file(log_level::DEBUGER, fmt::format("Table name: {}", table_name));
+            current_logger->log_to_console(log_level::DEBUGER, fmt::format("Table name: {}", table_name));
 
             if (!id_to_table_name.contains(table_id))
                 id_to_table_name[table_id] = table_name;
@@ -332,7 +332,7 @@ void logical_replication_parser::parse_binary_data(const char *replication_messa
             char table_identity = parse_int8(replication_message, pos, size);
             if (table_identity != 'd' && table_identity != 'i')
             {
-                current_logger->log_to_file(log_level::WARN, fmt::format("Invalid identity: {}", table_identity));
+                current_logger->log_to_console(log_level::WARN, fmt::format("Invalid identity: {}", table_identity));
                 id_skip_table_name.emplace(table_id);
                 return;
             }
@@ -368,7 +368,7 @@ void logical_replication_parser::parse_binary_data(const char *replication_messa
                 std::string column_name;
                 parse_int8(replication_message, pos, size); // identity index for replica column
                 parse_string(replication_message, pos, size, column_name);
-                current_logger->log_to_file(log_level::DEBUGER, fmt::format("Column name: {}", column_name));
+                current_logger->log_to_console(log_level::DEBUGER, fmt::format("Column name: {}", column_name));
 
                 data_type_id = parse_int32(replication_message, pos, size);
                 type_modifier = parse_int32(replication_message, pos, size);

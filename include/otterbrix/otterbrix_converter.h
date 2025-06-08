@@ -16,6 +16,9 @@
 using namespace components::document;
 using namespace components;
 
+static std::string PK_ID = "_id";
+static std::string SLASH = "/";
+
 namespace tsl {
     struct column_info {
         document_types type;

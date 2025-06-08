@@ -32,7 +32,7 @@ namespace {
              const int64_t &value,
              std::pmr::memory_resource *res)
     {
-        if (name == "/_id") {
+        if (name == SLASH + PK_ID) {
             doc->set(name, tsl::gen_id(value, res));
             return true;
         }
@@ -234,7 +234,7 @@ namespace {
         auto translator = type_to_translator_array(type);
 
         for (int i = 0; i < values.size(); i++) {
-            translator(doc->get_array(name), std::string("/") + std::to_string(i), std::vector{values[i]}, 0, resource);
+            translator(doc->get_array(name), SLASH + std::to_string(i), std::vector{values[i]}, 0, resource);
         }
     }
 
@@ -377,7 +377,7 @@ namespace {
         auto translator = type_to_translator_array(type);
 
         for (int i = 0; i < values.size(); i++) {
-            translator(doc->get_array(name), std::string("/") + std::to_string(i), std::vector{values[i]}, 0, resource);
+            translator(doc->get_array(name), SLASH + std::to_string(i), std::vector{values[i]}, 0, resource);
         }
     }
 
@@ -438,10 +438,9 @@ namespace {
             }
             default:
             {
-                std::stringstream oss;
-                oss << "Cant find row to doc translator for type: " << type;
-                std::cerr << oss.str() << std::endl;
-                throw std::runtime_error(oss.str());
+                std::string error_message = fmt::format("Cant find row to doc translator for type: %s", type);
+                logger::log_to_console(log_level::ERR, error_message);
+                throw std::runtime_error(error_message);
             }
         }
     }
@@ -493,10 +492,9 @@ namespace {
             }
             default:
             {
-                std::stringstream oss;
-                oss << "Cant find row to doc translator for type: " << type;
-                std::cerr << oss.str() << std::endl;
-                throw std::runtime_error(oss.str());
+                std::string error_message = fmt::format("Cant find row to doc translator for type: %s", type);
+                logger::log_to_console(log_level::ERR, error_message);
+                throw std::runtime_error(error_message);
             }
         }
     }
@@ -526,7 +524,7 @@ namespace tsl {
             auto translator = postgres_to_doc(column.type());
             schema.emplace_back(translator.type, column.name());
 
-            auto wrapper = [translator = translator.setter, index = counter++, name = std::string("/") + column.name(), resource = res](
+            auto wrapper = [translator = translator.setter, index = counter++, name = SLASH + column.name(), resource = res](
                 components::document::document_ptr doc,
                 const pqxx::row &row) -> void {
                 translator(doc, name, row, index, resource);
@@ -536,11 +534,10 @@ namespace tsl {
 
         assert(postgres_row_to_doc_translators.size() == ncolumns);
         if (postgres_row_to_doc_translators.size() != ncolumns) {
-            std::stringstream oss;
-            oss << "Invalid number of translators: " << postgres_row_to_doc_translators.size() << " expected: " <<
-                    ncolumns;
-            std::cerr << oss.str() << std::endl;
-            throw std::runtime_error(oss.str());
+            std::string error_message = fmt::format("Invalid number of translators: %s expected: %s",
+                                                    postgres_row_to_doc_translators.size(), ncolumns);
+            logger::log_to_console(log_level::ERR, error_message);
+            throw std::runtime_error(error_message);
         }
 
         std::vector<components::document::document_ptr> docs;
@@ -571,7 +568,7 @@ namespace tsl {
             auto translator = logical_replication_to_doc(columns[i].second);
             schema.emplace_back(translator.type, columns[i].first);
 
-            auto wrapper = [translator = translator.setter, index = i, name = std::string("/") + columns[i].first, resource = res](
+            auto wrapper = [translator = translator.setter, index = i, name = SLASH + columns[i].first, resource = res](
                                components::document::document_ptr doc,
                                const std::vector<std::string> &result) -> void { translator(doc, name, result, index, resource); };
             postgres_row_to_doc_translators.push_back(std::move(wrapper));
@@ -579,10 +576,10 @@ namespace tsl {
 
         assert(postgres_row_to_doc_translators.size() == num_columns);
         if (postgres_row_to_doc_translators.size() != num_columns) {
-            std::stringstream oss;
-            oss << "Invalid number of translator: " << postgres_row_to_doc_translators.size() << " expected: " << num_columns;
-            std::cerr << oss.str() << std::endl;
-            throw std::runtime_error(oss.str());
+            std::string error_message = fmt::format("Invalid number of translators: %s expected: %s",
+                                                    postgres_row_to_doc_translators.size(), num_columns);
+            logger::log_to_console(log_level::ERR, error_message);
+            throw std::runtime_error(error_message);
         }
 
         components::document::document_ptr doc =  components::document::make_document(res);

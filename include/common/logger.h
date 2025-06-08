@@ -12,11 +12,15 @@ enum log_level : int {
     DEBUGER = 4
 };
 
+static log_level LOG_LEVEL_PROJECT = INFO;
+
 class logger {
 public:
     logger(const std::string& file_name_, const std::string& url_);
     logger(logger&&) noexcept;
     ~logger();
+
+    static void log_to_console(log_level level, const std::string& message);
 
     void log_to_file(log_level level, const std::string& message);
 
@@ -27,7 +31,6 @@ private:
     std::string file_name;
     std::mutex log_mutex;
     std::string url;
-    log_level current_log_level = log_level::INFO;
 
     static std::string get_current_time();
     static std::string log_level_to_string(log_level level);

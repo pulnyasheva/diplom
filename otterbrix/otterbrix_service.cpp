@@ -210,7 +210,7 @@ void otterbrix_service::add_parameter_value(logical_plan::parameter_node_ptr &pa
                                             const std::string &name,
                                             const std::string &value,
                                             std::pmr::memory_resource *resource) {
-    if (name == "_id") {
+    if (name == PK_ID) {
         params->add_parameter(id_par{num}, tsl::gen_id(std::stoll(value), resource));
     } else {
         params->add_parameter(id_par{num}, value);

@@ -44,7 +44,7 @@ namespace layer {
 
                     for (const auto& buf : *cursor_p) {
                         for (const auto& doc : buf->data()) {
-                            log.log_to_file(log_level::INFO, doc->to_json().c_str());
+                            log.log_to_console(log_level::INFO, doc->to_json().c_str());
                         }
                     }
                 }

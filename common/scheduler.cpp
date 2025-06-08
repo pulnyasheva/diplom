@@ -14,10 +14,8 @@ std::packaged_task<bool()> scheduler::createTask(const std::string& name, std::f
 
 bool scheduler::runTask(std::packaged_task<bool()> task) {
     std::future<bool> result = task.get_future();
-    std::cout << "task" << std::endl;
     std::thread([task = std::move(task)]() mutable {
         task();
     }).detach();
-    std::cout << "result" << std::endl;
     return result.get();
 }
