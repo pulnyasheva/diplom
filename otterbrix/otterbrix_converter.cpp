@@ -400,10 +400,6 @@ namespace {
             {
                 return {document_types::INT8, set_int8};
             }
-            case postgres_types::NUMERIC:
-            {
-                return {document_types::INT64, set_int64};
-            }
             case postgres_types::BIT:
             case postgres_types::BOOL:
             {
@@ -453,10 +449,6 @@ namespace {
             case postgres_types::INT8:
             {
                 return {document_types::INT8, set_int8_postgres};
-            }
-            case postgres_types::NUMERIC:
-            {
-                return {document_types::INT64, set_int64_postgres};
             }
             case postgres_types::BIT:
             case postgres_types::BOOL:

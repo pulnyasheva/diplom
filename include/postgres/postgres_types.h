@@ -25,7 +25,6 @@ enum class postgres_types : int32_t
     VARCHAR = 1043,
     BIT = 1560,
     UUID = 2950,
-    NUMERIC = 1700,
     ARRAY = -1
 };
 
@@ -60,7 +59,6 @@ inline static postgres_types get_enum(int32_t num_value) {
         case static_cast<int32_t>(postgres_types::VARCHAR): return postgres_types::VARCHAR;
         case static_cast<int32_t>(postgres_types::BIT): return postgres_types::BIT;
         case static_cast<int32_t>(postgres_types::UUID): return postgres_types::UUID;
-        case static_cast<int32_t>(postgres_types::NUMERIC): return postgres_types::NUMERIC;
         default: break;
     }
 
@@ -75,8 +73,7 @@ inline static postgres_types get_enum(int32_t num_value) {
         case static_cast<int32_t>(postgres_array_types::DOUBLE):
         case static_cast<int32_t>(postgres_array_types::VARCHAR):
         case static_cast<int32_t>(postgres_array_types::BIT):
-        case static_cast<int32_t>(postgres_array_types::UUID):
-        case static_cast<int32_t>(postgres_array_types::NUMERIC): return postgres_types::ARRAY;
+        case static_cast<int32_t>(postgres_array_types::UUID): return postgres_types::ARRAY;
         default: break;
     }
 

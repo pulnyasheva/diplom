@@ -355,7 +355,6 @@ void logical_replication_parser::parse_binary_data(const char *replication_messa
             /// time - 1083
             /// timestamp - 1114
             /// bit - 1560
-            /// numeric - 1700
             /// uuid - 2950
             int32_t data_type_id;
             int32_t type_modifier; // Дополнительные параметры типа
