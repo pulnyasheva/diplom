@@ -81,7 +81,7 @@ def populate_tables(conn):
 
         conn.commit()
         i += 1
-        time.sleep(1.5)
+        time.sleep(2)
 
     cursor.close()
 
