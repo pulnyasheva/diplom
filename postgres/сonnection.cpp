@@ -66,7 +66,7 @@ namespace postgres
             current_logger->log_to_console(log_level::DEBUGER, fmt::format("New connection {}", connection_dsn));
         } catch (const std::exception& e) {
             current_logger->log_to_console(log_level::ERR, fmt::format("Connection update failed: {}", e.what()));
-            throw;
+            throw std::runtime_error("Connection update failed");
         }
     }
     
@@ -76,5 +76,4 @@ namespace postgres
         if (!connection || !connection->is_open())
             try_refresh_connection();
     }
-
 }
