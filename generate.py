@@ -2,6 +2,7 @@ import psycopg2
 import random
 import string
 import time
+import os
 
 def random_string(length):
     letters = string.ascii_letters
@@ -32,9 +33,12 @@ def connect_db():
 
 def populate_tables(conn):
     cursor = conn.cursor()
-    i = 4
+    i = int(os.getenv('START_ID'))
 
     while True:
+        if (i % 100 == 0):
+            print("Operation ", i)
+
         cursor.execute("""
             INSERT INTO example1 (_id, varchar_field1, varchar_field2, int_field, double_field, text_field, bit_field, bool_field)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
@@ -77,7 +81,7 @@ def populate_tables(conn):
 
         conn.commit()
         i += 1
-        time.sleep(1)
+        time.sleep(0.1)
 
     cursor.close()
 

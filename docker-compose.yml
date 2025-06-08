@@ -34,6 +34,8 @@ services:
       context: .
       dockerfile: Dockerfile-generate
     container_name: generate_container
+    environment:
+      - START_ID=4
     depends_on:
       - app
       - postgres
