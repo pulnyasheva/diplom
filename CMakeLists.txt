@@ -15,7 +15,6 @@ add_executable(diplom postgres/сonnection.cpp
         common/logger.cpp
         include/logical_replication/logical_replication_handler.h
         include/postgres/сonnection.h
-        example.cpp
         logical_replication/logical_replication_handler.cpp
         include/logical_replication/logical_replication_consumer.h
         logical_replication/logical_replication_consumer.cpp
