@@ -23,6 +23,7 @@ services:
     container_name: otterstax_app
     depends_on:
       - postgres
+    entrypoint: ["./wait-for-postgres.sh", "postgres", "./diplom"]
 
   generator:
     build:
