@@ -21,6 +21,10 @@ services:
       context: .
       dockerfile: Dockerfile-service
     container_name: otterstax_app
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
     depends_on:
       - postgres
     entrypoint: ["../wait-for-postgres.sh", "postgres", "./diplom"]
