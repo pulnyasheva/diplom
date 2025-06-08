@@ -36,7 +36,7 @@ def populate_tables(conn):
     i = int(os.getenv('START_ID'))
 
     while True:
-        if (i % 100 == 0):
+        if (i % 50 == 0):
             print("Operation ", i)
 
         cursor.execute("""
@@ -81,7 +81,7 @@ def populate_tables(conn):
 
         conn.commit()
         i += 1
-        time.sleep(0.9)
+        time.sleep(1.5)
 
     cursor.close()
 
