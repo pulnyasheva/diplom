@@ -200,7 +200,7 @@ void logical_replication_handler::create_publication(pqxx::nontransaction &tx) {
 
     if (!publication_exists) {
         if (tables_names.empty())
-            throw std::logic_error("No table found to be replicated");
+            throw std::logic_error("No table found for replication");
 
         std::string query_str = fmt::format("CREATE PUBLICATION {} FOR TABLE ONLY {}",
                                             publication_name, tables_names);

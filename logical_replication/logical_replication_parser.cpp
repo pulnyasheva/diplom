@@ -244,10 +244,10 @@ void logical_replication_parser::parse_binary_data(const char *replication_messa
                 return;
             }
 
-            auto proccess_identifier = [&](int8_t identifier) -> bool
+            auto proccess = [&](int8_t id) -> bool
             {
                 bool read_next = true;
-                switch (identifier)
+                switch (id)
                 {
                     case 'K':
                     case 'O': {
@@ -264,12 +264,12 @@ void logical_replication_parser::parse_binary_data(const char *replication_messa
                 return read_next;
             };
 
-            /// Read 'K' or 'O'
-            bool read_next = proccess_identifier(parse_int8(replication_message, pos, size));
+            /// Read 'K', 'O'
+            bool read_next = proccess(parse_int8(replication_message, pos, size));
 
             /// Read 'N'
             if (read_next)
-                proccess_identifier(parse_int8(replication_message, pos, size));
+                proccess(parse_int8(replication_message, pos, size));
 
             type_operation = postgre_sql_type_operation::UPDATE;
             break;
@@ -296,11 +296,11 @@ void logical_replication_parser::parse_binary_data(const char *replication_messa
         }
         case 'C': // Commit
         {
-            constexpr size_t unused_flags_len = 1;
+            constexpr size_t unused_bool_len = 1;
             constexpr size_t commit_lsn_len = 8;
             constexpr size_t transaction_end_lsn_len = 8;
             constexpr size_t transaction_commit_timestamp_len = 8;
-            pos += unused_flags_len + commit_lsn_len + transaction_end_lsn_len + transaction_commit_timestamp_len;
+            pos += unused_bool_len + commit_lsn_len + transaction_end_lsn_len + transaction_commit_timestamp_len;
 
             result_lsn = current_lsn;
             *is_committed = true;
