@@ -61,7 +61,7 @@ def populate_tables(conn):
             random_array()
         ))
 
-        if (i + 1) % 90 == 0:
+        if (i + 1) % 60 == 0:
             cursor.execute("""
                 UPDATE example1
                 SET varchar_field1 = %s
