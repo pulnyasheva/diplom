@@ -39,4 +39,8 @@ int main() {
     std::thread producer_thread(&logical_replication_handler::run_consumer, &replication_handler);
 
     layer::consumer(postgres_database, tables, file_name, otterbrix_service, queue);
+
+    if (producer_thread.joinable()) {
+        producer_thread.join();
+    }
 }
