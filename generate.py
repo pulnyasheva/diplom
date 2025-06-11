@@ -19,7 +19,7 @@ def connect_db():
                 dbname='postgres',
                 user='postgres',
                 password='postgres',
-                host='postgres',
+                host='172.29.190.7',
                 port='5432'
             )
             print("Подключение успешно!")
@@ -33,7 +33,7 @@ def connect_db():
 
 def populate_tables(conn):
     cursor = conn.cursor()
-    i = int(os.getenv('START_ID'))
+    i = 4
 
     while True:
         if (i % 50 == 0):

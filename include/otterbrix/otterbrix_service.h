@@ -3,6 +3,7 @@
 #include <memory_resource>
 #include <vector>
 #include <pqxx/pqxx>
+#include <future>
 #include <spdlog/spdlog.h>
 
 #include <postgres/postgres_types.h>
@@ -17,6 +18,8 @@
 #include <components/logical_plan/node_insert.hpp>
 #include <components/log/log.hpp>
 
+#include <logical_replication/logical_replication_parser.h>
+
 using namespace moodycamel;
 
 using key = components::expressions::key_t;
@@ -30,7 +33,12 @@ struct result_node {
 
 class otterbrix_service {
 public:
-    explicit otterbrix_service(ReaderWriterQueue<result_node> &queue_): queue(queue_) {}
+    explicit otterbrix_service(
+        ReaderWriterQueue<result_node> &queue_shapshots_,
+        ReaderWriterQueue<std::future<std::vector<result_node>>> &result_queue_)
+        : queue_shapshots(queue_shapshots_),
+          result_queue(result_queue_) {
+    }
     otterbrix_service(otterbrix_service&&) noexcept;
 
     std::shared_ptr<spdlog::logger> underlying_logger;
@@ -42,7 +50,8 @@ public:
                       const std::vector<std::string> &result,
                       const std::vector<std::pair<std::string, int32_t>> &columns,
                       const std::unordered_map<int32_t, std::string> &old_value,
-                      std::pmr::memory_resource* resource);
+                      std::pmr::memory_resource* resource,
+                      result_node &result_node);
 
     void data_handler(pqxx::result &result,
                       const std::string &table_name,
@@ -68,5 +77,6 @@ private:
                              const std::string &value,
                              std::pmr::memory_resource *resource);
 
-    ReaderWriterQueue<result_node> &queue;
+    ReaderWriterQueue<result_node> &queue_shapshots;
+    ReaderWriterQueue<std::future<std::vector<result_node>>> &result_queue;
 };

@@ -1,13 +1,18 @@
 #pragma once
 
 #include <cstdint>
+#include <future>
 #include <unordered_set>
 #include <libpq-fe.h>
 
 #include <postgres/сonnection.h>
 #include <common/logger.h>
+#include <lock_free_queue/readerwriterqueue.h>
 #include <otterbrix/otterbrix_service.h>
 #include <postgres/postgres_settings.h>
+#include <logical_replication/logical_replication_parser.h>
+
+using namespace moodycamel;
 
 class logical_replication_consumer {
 public:
@@ -21,7 +26,8 @@ public:
     size_t max_block_size_,
     logger *logger_,
     otterbrix_service *otterbrix_service,
-    std::pmr::memory_resource* resource_);
+    std::pmr::memory_resource* resource_,
+    ReaderWriterQueue<std::future<std::vector<result_node>>> &result_queue_);
 
     bool consume();
 
@@ -41,7 +47,6 @@ private:
     PGconn *start_replication();
 
     logger *current_logger;
-    postgres_settings current_postgres_settings;
     const std::string replication_slot_name, publication_name;
     const std::string database_name;
 
@@ -64,4 +69,7 @@ private:
 
     otterbrix_service *current_otterbrix_service;
     std::pmr::memory_resource* resource;
+
+    ReaderWriterQueue<parse_event> queue_events;
+    ReaderWriterQueue<std::future<std::vector<result_node>>> &result_queue;
 };

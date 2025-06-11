@@ -1,6 +1,7 @@
 #include <string>
 #include <vector>
 #include <iostream>
+#include <future>
 
 #include <logical_replication/logical_replication_handler.h>
 #include <otterbrix/otterbrix_layer.h>
@@ -10,8 +11,10 @@
 #include <components/logical_plan/param_storage.hpp>
 #include <integration/cpp/wrapper_dispatcher.hpp>
 
+using namespace moodycamel;
+
 int main() {
-    std::string conninfo = "postgresql://postgres:postgres@postgres:5432/postgres";
+    std::string conninfo = "postgresql://postgres:postgres@172.29.190.7:5432/postgres";
     std::string postgres_database = "postgres";
     std::string postgres_name = "example";
     std::vector<std::string> tables = {"public.example1", "public.example2"};
@@ -19,7 +22,8 @@ int main() {
     std::string url_log = "";
     const char* path = "/tmp/test_collection_sql/base";
 
-    ReaderWriterQueue<result_node> queue(100);
+    ReaderWriterQueue<result_node> queue_shapshots(100);
+    ReaderWriterQueue<std::future<std::vector<result_node>>> result_queue(100);
     otterbrix::otterbrix_ptr otterbrix_service;
     layer::create_otterbrix(path, otterbrix_service);
     std::pmr::memory_resource* resource = resource = otterbrix_service->dispatcher()->resource();
@@ -31,14 +35,18 @@ int main() {
         file_name,
         url_log,
         tables,
-        queue,
+        queue_shapshots,
+        result_queue,
         resource,
         100);
 
     replication_handler.start_synchronization();
+
+    layer::consumer(postgres_database, tables, file_name, otterbrix_service, queue_shapshots);
+
     std::thread producer_thread(&logical_replication_handler::run_consumer, &replication_handler);
 
-    layer::consumer(postgres_database, tables, file_name, otterbrix_service, queue);
+    layer::consumer(postgres_database, tables, file_name, otterbrix_service, result_queue);
 
     if (producer_thread.joinable()) {
         producer_thread.join();

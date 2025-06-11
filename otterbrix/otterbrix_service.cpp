@@ -1,3 +1,4 @@
+#include <future>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <actor-zeta/base/address.hpp>
 
@@ -17,6 +18,7 @@
 using expressions::compare_type;
 using key = expressions::key_t;
 using id_par = core::parameter_id_t;
+using namespace moodycamel;
 
 void otterbrix_service::data_handler(postgre_sql_type_operation type_operation,
                                     const std::string &table_name,
@@ -25,17 +27,16 @@ void otterbrix_service::data_handler(postgre_sql_type_operation type_operation,
                                     const std::vector<std::string> &result,
                                     const std::vector<std::pair<std::string, int32_t>> &columns,
                                     const std::unordered_map<int32_t, std::string> &old_value,
-                                    std::pmr::memory_resource* resource) {
+                                    std::pmr::memory_resource* resource,
+                                    result_node &result_node) {
     switch (type_operation) {
         case postgre_sql_type_operation::INSERT: {
             tsl::doc_result doc_result = tsl::logical_replication_to_docs(resource, columns.size(), columns, result, type_operation);
             auto insert_node = logical_plan::make_node_insert(resource,
                                                               {database_name, table_name},
                                                               doc_result.document);
-            result_node result_node;
             result_node.node = insert_node;
             result_node.has_parameter = false;
-            queue.enqueue(result_node);
             break;
         }
         case postgre_sql_type_operation::UPDATE: {
@@ -54,11 +55,9 @@ void otterbrix_service::data_handler(postgre_sql_type_operation type_operation,
                                                                   {database_name, table_name},
                                                                   node_match,
                                                                   doc_result.document);
-            result_node result_node;
             result_node.node = node_update;
             result_node.parameter = expression.second;
             result_node.has_parameter = true;
-            queue.enqueue(result_node);
             break;
         }
         case postgre_sql_type_operation::DELETE: {
@@ -70,11 +69,9 @@ void otterbrix_service::data_handler(postgre_sql_type_operation type_operation,
             auto node_delete = logical_plan::make_node_delete_one(resource,
                                                               {database_name, table_name},
                                                               node_match);
-            result_node result_node;
             result_node.node = node_delete;
             result_node.parameter = expression.second;
             result_node.has_parameter = true;
-            queue.enqueue(result_node);
             break;
         }
     }
@@ -86,15 +83,23 @@ void otterbrix_service::data_handler(pqxx::result &result,
                                      std::pmr::memory_resource* resource) {
     tsl::docs_result docs_result = tsl::postgres_to_docs(resource, result);
 
-    for (auto doc: docs_result.document) {
-        auto insert_node = logical_plan::make_node_insert(resource,
-                                                          {database_name, table_name},
-                                                          doc);
-        result_node result_node;
-        result_node.node = insert_node;
-        result_node.has_parameter = false;
-        queue.enqueue(result_node);
+    std::vector<std::future<void>> futures;
+
+    for (const auto& doc : docs_result.document) {
+        futures.emplace_back(std::async(std::launch::async, [this, &resource, &database_name, &table_name, doc]() {
+            auto insert_node = logical_plan::make_node_insert(resource, {database_name, table_name}, doc);
+            result_node result_node;
+            result_node.node = insert_node;
+            result_node.has_parameter = false;
+            this->queue_shapshots.enqueue(result_node);
+        }));
     }
+
+    for (auto& future : futures) {
+        future.get();
+    }
+    result_node result_node_end;
+    queue_shapshots.enqueue(result_node_end);
 }
 
 std::pair<expressions::expression_ptr, logical_plan::parameter_node_ptr> otterbrix_service::make_expression_match(

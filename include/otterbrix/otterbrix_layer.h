@@ -13,11 +13,15 @@ namespace layer {
     void create_database(const std::string &postgres_database, std::vector<std::string> &tables_array,
                          otterbrix::otterbrix_ptr &otterbrix_service);
 
-    // void producer(logical_replication_handler &re);
-
     void consumer(const std::string &postgres_database,
                   std::vector<std::string> &tables_array,
                   const std::string &file_name,
                   otterbrix::otterbrix_ptr &otterbrix_service,
                   ReaderWriterQueue<result_node> &queue);
+
+    void consumer(const std::string &postgres_database,
+                  std::vector<std::string> &tables_array,
+                  const std::string &file_name,
+                  otterbrix::otterbrix_ptr &otterbrix_service,
+                  ReaderWriterQueue<std::future<std::vector<result_node>>> &result_queue);
 }
