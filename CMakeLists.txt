@@ -38,8 +38,6 @@ add_executable(diplom postgres/сonnection.cpp
         include/lock_free_queue/atomicops.h
         main.cpp
         include/otterbrix/otterbrix_layer.h
-        include/common/thread_pool.h
 )
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread")
 
 target_link_libraries(diplom PUBLIC libpqxx::pqxx fmt::fmt otterbrix::otterbrix CURL::libcurl spdlog::spdlog)

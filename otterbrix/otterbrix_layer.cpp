@@ -54,58 +54,12 @@ namespace layer {
             result_node result_node;
             bool succeeded = queue.try_dequeue(result_node);
             if (succeeded) {
-                if (result_node.node == nullptr)
-                    return;
                 if (!result_node.has_parameter) {
                     otterbrix_service->dispatcher()->execute_plan(otterbrix::session_id_t(), result_node.node);
                 } else {
                     otterbrix_service->dispatcher()->execute_plan(otterbrix::session_id_t(), result_node.node, result_node.parameter);
                 }
                 counter++;
-            }
-        }
-    }
-
-    void consumer(const std::string &postgres_database,
-                  std::vector<std::string> &tables_array,
-                  const std::string &file_name,
-                  otterbrix::otterbrix_ptr &otterbrix_service,
-                  ReaderWriterQueue<std::future<std::vector<result_node>>> &result_queue) {
-        logger log = logger(file_name, "");
-        int counter = 0;
-        while (true) {
-            if (counter == 10) {
-                counter = 0;
-                for (auto &table : tables_array) {
-                    auto cursor_p = otterbrix_service->dispatcher()->execute_sql(
-                    otterbrix::session_id_t(),
-                    fmt::format("SELECT * FROM {}.\"{}\";", postgres_database, table)
-                    );
-
-                    for (const auto& buf : *cursor_p) {
-                        for (const auto& doc : buf->data()) {
-                            log.log_to_console(log_level::INFO, doc->to_json().c_str());
-                        }
-                    }
-                }
-                continue;
-            }
-
-            std::future<std::vector<result_node>> nodes;
-            bool succeeded = result_queue.try_dequeue(nodes);
-            if (succeeded) {
-                std::vector<result_node> result_nodes = nodes.get();
-                for (int i = 0; i < result_nodes.size(); i++) {
-                    result_node result_node = result_nodes[i];
-                    if (result_node.node == nullptr)
-                        return;
-                    if (!result_node.has_parameter) {
-                        otterbrix_service->dispatcher()->execute_plan(otterbrix::session_id_t(), result_node.node);
-                    } else {
-                        otterbrix_service->dispatcher()->execute_plan(otterbrix::session_id_t(), result_node.node, result_node.parameter);
-                    }
-                    counter++;
-                }
             }
         }
     }

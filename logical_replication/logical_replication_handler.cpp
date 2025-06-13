@@ -79,13 +79,11 @@ logical_replication_handler::logical_replication_handler(
     const std::string &file_name_,
     const std::string &url_log_,
     std::vector<std::string> &tables_array_,
-    ReaderWriterQueue<result_node> &queue_shapshots_,
-    ReaderWriterQueue<std::future<std::vector<result_node>>> &result_queue_,
+    ReaderWriterQueue<result_node> &queue_,
     std::pmr::memory_resource* resource_,
     size_t max_block_size_,
     const bool user_managed_slot_,
-    const std::string user_snapshot_,
-    const std::string user_lsn_)
+    const std::string user_snapshot_)
     : connection_dsn(connection_dsn_),
       current_logger(file_name_, url_log_),
       tables_array(tables_array_),
@@ -95,11 +93,9 @@ logical_replication_handler::logical_replication_handler(
       publication_name(get_publication_name(postgres_database_, postgres_name_)),
       user_managed_slot(user_managed_slot_),
       user_snapshot(user_snapshot_),
-      user_lsn(user_lsn_),
       max_block_size(max_block_size_),
-      current_otterbrix_service(queue_shapshots_, result_queue_),
-      resource(resource_),
-      result_queue(result_queue_)
+      current_otterbrix_service(queue_),
+      resource(resource_)
 {
     if (tables_names.empty()) {
         throw exception(error_codes::BAD_ARGUMENTS, "Can not have tables list");
@@ -133,11 +129,10 @@ void logical_replication_handler::start_synchronization() {
         {
             if (user_managed_slot)
             {
-                if (user_snapshot.empty() || user_lsn.empty())
+                if (user_snapshot.empty())
                     throw exception(error_codes::BAD_ARGUMENTS, "User snapshot not have");
 
                 snapshot_name = user_snapshot;
-                start_lsn = user_lsn;
             }
             else
             {
@@ -175,8 +170,7 @@ void logical_replication_handler::start_synchronization() {
         max_block_size,
         &current_logger,
         &current_otterbrix_service,
-        resource,
-        result_queue);
+        resource);
     current_logger.log_to_console(log_level::DEBUGER, "Consumer created");
 }
 
@@ -230,7 +224,7 @@ bool logical_replication_handler::has_replication_slot(pqxx::nontransaction & tx
     std::string slot_name = replication_slot;
 
     std::string query_str = fmt::format(
-        "SELECT EXISTS (SELECT 1 FROM pg_replication_slots WHERE slot_name = '{}')",
+        "SELECT active, restart_lsn, confirmed_flush_lsn FROM pg_replication_slots WHERE slot_name = '{}'",
         slot_name
     );
     pqxx::result result{tx.exec(query_str)};

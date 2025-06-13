@@ -6,10 +6,7 @@
 #include <common/logger.h>
 #include <postgres/сonnection.h>
 #include <logical_replication/logical_replication_consumer.h>
-#include <lock_free_queue/readerwriterqueue.h>
 #include <common/scheduler.h>
-
-using namespace moodycamel;
 
 namespace pqxx {
     using replication_transaction = transaction<repeatable_read, write_policy::read_only>;
@@ -30,13 +27,11 @@ public:
             const std::string & file_name_,
             const std::string &url_log_,
             std::vector<std::string> & tables_array_,
-            ReaderWriterQueue<result_node> &queue_shapshots_,
-            ReaderWriterQueue<std::future<std::vector<result_node>>> &result_queue_,
+            ReaderWriterQueue<result_node> &queue_,
             std::pmr::memory_resource* resource_,
             size_t max_block_size_,
             bool user_managed_slot = false,
-            std::string user_snapshot = "",
-            std::string user_lsn = "");
+            std::string user_snapshot = "");
 
     /// Start replication.
     void start_synchronization();
@@ -67,7 +62,6 @@ private:
 
     const bool user_managed_slot;
     const std::string user_snapshot;
-    const std::string user_lsn;
     const std::string replication_slot;
     const std::string publication_name;
     size_t max_block_size;
@@ -76,5 +70,4 @@ private:
 
     otterbrix_service current_otterbrix_service;
     std::pmr::memory_resource* resource;
-    ReaderWriterQueue<std::future<std::vector<result_node>>> &result_queue;
 };

@@ -1,31 +1,19 @@
-#include <future>
 #include <iostream>
 #include <vector>
 #include <fmt/format.h>
 
 #include <logical_replication/logical_replication_parser.h>
 #include <common/exception.h>
-#include <common/thread_pool.h>
 
 logical_replication_parser::logical_replication_parser(
     std::string *current_lsn_,
     std::string *result_lsn_,
-    const std::string & connection_dsn_,
     bool *is_committed_,
-    logger *logger_,
-    otterbrix_service *otterbrix_service_,
-    std::pmr::memory_resource *resource_,
-    ReaderWriterQueue<parse_event> &queue_events_,
-    ReaderWriterQueue<std::future<std::vector<result_node>>> &result_queue_)
+    logger *logger_)
     : current_lsn(current_lsn_),
       result_lsn(result_lsn_),
       is_committed(is_committed_),
-      current_logger(logger_),
-      current_otterbrix_service(otterbrix_service_),
-      resource(resource_),
-      queue_events(queue_events_),
-      result_queue(result_queue_),
-      current_postgres_settings(connection_dsn_, logger_) {
+      current_logger(logger_) {
 }
 
 uint8_t logical_replication_parser::hex_char_to_digit(char c) {
@@ -204,9 +192,9 @@ void logical_replication_parser::parse_binary_data(const char *replication_messa
                                                postgre_sql_type_operation& type_operation,
                                                int32_t& table_id,
                                                std::vector<std::string>& result,
-                                               std::unordered_map<int32_t, std::string>* id_to_table_name,
-                                               std::unordered_set<int32_t>* id_skip_table_name,
-                                               std::unordered_map<int32_t, std::vector<std::pair<std::string, int32_t>>>* id_table_to_column,
+                                               std::unordered_map<int32_t, std::string>& id_to_table_name,
+                                               std::unordered_set<int32_t>& id_skip_table_name,
+                                               std::unordered_map<int32_t, std::vector<std::pair<std::string, int32_t>>>& id_table_to_column,
                                                std::unordered_map<int32_t, std::string>& old_value)
 {
     // Skip '\x'
@@ -337,15 +325,15 @@ void logical_replication_parser::parse_binary_data(const char *replication_messa
 
             current_logger->log_to_console(log_level::DEBUGER, fmt::format("Table name: {}", table_name));
 
-            if (!id_to_table_name->contains(table_id))
-                (*id_to_table_name)[table_id] = table_name;
+            if (!id_to_table_name.contains(table_id))
+                id_to_table_name[table_id] = table_name;
 
             // 'n' и 'f' не обрабатываются
             char table_identity = parse_int8(replication_message, pos, size);
             if (table_identity != 'd' && table_identity != 'i')
             {
                 current_logger->log_to_console(log_level::WARN, fmt::format("Invalid identity: {}", table_identity));
-                id_skip_table_name->emplace(table_id);
+                id_skip_table_name.emplace(table_id);
                 return;
             }
 
@@ -387,7 +375,7 @@ void logical_replication_parser::parse_binary_data(const char *replication_messa
                 columns[i] = {column_name, data_type_id};
                 replication_columns.emplace_back(column_name);
             }
-            (*id_table_to_column)[table_id] = columns;
+            id_table_to_column[table_id] = columns;
             type_operation = postgre_sql_type_operation::NOT_PROCESSED;
             break;
         }
@@ -402,73 +390,4 @@ void logical_replication_parser::parse_binary_data(const char *replication_messa
             throw exception(error_codes::LOGICAL_ERROR,
                     fmt::format("Unexpected byte1 value {}", type));
     }
-}
-
-void logical_replication_parser::parse_events(const std::string &database_name, std::unordered_map<int32_t, std::vector<int32_t>>& id_to_primary_key) {
-    std::vector<parse_event> events;
-    ReaderWriterQueue<std::future<std::vector<result_node>>> result_queue;
-    ThreadPool pool(10);
-    size_t size = 0;
-    while (true) {
-        parse_event event;
-        bool succeeded = queue_events.try_dequeue(event);
-        if (succeeded) {
-            events.push_back(event);
-            size++;
-            if (size == 300) {
-                result_queue.enqueue(pool.enqueue([this, &event, events, &database_name, &id_to_primary_key] {
-                    std::vector<result_node> results;
-                    for (int i = 0; i < events.size(); i++) {
-                        try {
-                            std::vector<std::string> result;
-                            std::unordered_map<int32_t, std::string> old_value;
-                            postgre_sql_type_operation type_operation;
-                            int32_t table_id_query;
-                            parse_binary_data(event.compact_hex_logical_replication,
-                                              *event.logical_data_len * 2 + 2,
-                                              type_operation,
-                                              table_id_query,
-                                              result,
-                                              event.id_to_table_name,
-                                              event.id_skip_table_name,
-                                              event.id_table_to_column,
-                                              old_value);
-                            result_node result_node;
-                            current_otterbrix_service->data_handler(type_operation,
-                                                                    (*event.id_to_table_name)[table_id_query],
-                                                                    database_name,
-                                                                    get_primary_key(table_id_query, id_to_primary_key, events[i]), result,
-                                                                    (*event.id_table_to_column)[table_id_query],
-                                                                    old_value,
-                                                                    resource, result_node);
-                            results.emplace_back(result_node);
-                        } catch (const exception &e) {
-                            current_logger->log_to_console(log_level::ERR,
-                                                           fmt::format("ERR during parsing: {}", e.what()));
-                        }
-                    }
-                    return results;
-                }));
-                events.clear();
-                size = 0;
-            }
-        }
-    }
-}
-
-std::vector<int32_t> logical_replication_parser::get_primary_key(int32_t table_id, std::unordered_map<int32_t, std::vector<int32_t>>& id_to_primary_key, const parse_event &event) {
-    if (id_to_primary_key.contains(table_id)) {
-        return id_to_primary_key[table_id];
-    }
-
-    std::set<std::string> primary_key = current_postgres_settings.get_primary_key((*event.id_to_table_name)[table_id]);
-    std::vector<int32_t> primary_key_columns;
-    for (int32_t i = 0; i < (*event.id_table_to_column)[table_id].size(); i++) {
-        auto column = (*event.id_table_to_column)[table_id][i];
-        if (primary_key.contains(column.first)) {
-            primary_key_columns.emplace_back(i);
-        }
-    }
-    id_to_primary_key[table_id] = primary_key_columns;
-    return id_to_primary_key[table_id];
 }

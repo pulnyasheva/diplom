@@ -18,8 +18,7 @@ logical_replication_consumer::logical_replication_consumer(
     size_t max_block_size_,
     logger *logger_,
     otterbrix_service *otterbrix_service_,
-    std::pmr::memory_resource* resource_,
-    ReaderWriterQueue<std::future<std::vector<result_node>>> &result_queue_)
+    std::pmr::memory_resource* resource_)
     : current_logger(logger_),
       replication_slot_name(replication_slot_name_),
       publication_name(publication_name_),
@@ -30,10 +29,9 @@ logical_replication_consumer::logical_replication_consumer(
       result_lsn(start_lsn),
       current_lsn_value(get_lsn(start_lsn)),
       max_block_size(max_block_size_),
+      current_postgres_settings(connection_dsn_, logger_),
       current_otterbrix_service(otterbrix_service_),
-      resource(resource_),
-      queue_events(100),
-      result_queue(result_queue_) {
+      resource(resource_){
 }
 
 uint64_t logical_replication_consumer::get_lsn(const std::string & lsn)
@@ -48,6 +46,23 @@ std::string logical_replication_consumer::lsn_to_string(uint64_t lsn_value) {
     uint32_t high_part = static_cast<uint32_t>(lsn_value >> 32);
     uint32_t low_part = static_cast<uint32_t>(lsn_value);
     return fmt::format("{:X}/{:X}", high_part, low_part);
+}
+
+std::vector<int32_t> logical_replication_consumer::get_primary_key(int32_t table_id) {
+    if (id_to_primary_key.contains(table_id)) {
+        return id_to_primary_key[table_id];
+    }
+
+    std::set<std::string> primary_key = current_postgres_settings.get_primary_key(id_to_table_name[table_id]);
+    std::vector<int32_t> primary_key_columns;
+    for (int32_t i = 0; i < id_table_to_column[table_id].size(); i++) {
+        auto column = id_table_to_column[table_id][i];
+        if (primary_key.contains(column.first)) {
+            primary_key_columns.emplace_back(i);
+        }
+    }
+    id_to_primary_key[table_id] = primary_key_columns;
+    return id_to_primary_key[table_id];
 }
 
 void logical_replication_consumer::send_standby_status_update(PGconn *conn,
@@ -146,10 +161,7 @@ bool logical_replication_consumer::consume()
 
     try
     {
-        logical_replication_parser parser = logical_replication_parser(&current_lsn, &result_lsn, connection_dsn, &is_committed,
-                                                                       current_logger, current_otterbrix_service,
-                                                                       resource, queue_events, result_queue);
-        std::thread parser_thread(&logical_replication_parser::parse_events, &parser, std::ref(database_name), std::ref(id_to_primary_key));
+        logical_replication_parser parser = logical_replication_parser(&current_lsn, &result_lsn, &is_committed, current_logger);
 
         char *copy_buf = nullptr;
         auto last_feedback_time = std::chrono::steady_clock::now();
@@ -238,13 +250,32 @@ bool logical_replication_consumer::consume()
                 }
 
                 std::string compact_hex_logical_replication = ss_hex_logical_replication.str();
-                parse_event event;
-                event.compact_hex_logical_replication = compact_hex_logical_replication.c_str();
-                event.logical_data_len = &logical_data_len;
-                event.id_skip_table_name = &id_skip_table_name;
-                event.id_table_to_column = &id_table_to_column;
-                event.id_to_table_name = &id_to_table_name;
-                queue_events.enqueue(event);
+
+                try
+                {
+                    std::vector<std::string> result;
+                    std::unordered_map<int32_t, std::string> old_value;
+                    postgre_sql_type_operation type_operation;
+                    int32_t table_id_query;
+                    parser.parse_binary_data(compact_hex_logical_replication.c_str(),
+                                             logical_data_len * 2 + 2,
+                                             type_operation,
+                                             table_id_query,
+                                             result,
+                                             id_to_table_name,
+                                             id_skip_table_name,
+                                             id_table_to_column,
+                                             old_value);
+                    current_otterbrix_service->data_handler(type_operation, id_to_table_name[table_id_query],
+                                                            database_name,
+                                                            get_primary_key(table_id_query), result,
+                                                            id_table_to_column[table_id_query], old_value, resource);
+                }
+                catch (const exception &e)
+                {
+                    current_logger->log_to_console(log_level::ERR, fmt::format("ERR during parsing: {}", e.what()));
+                }
+
                 last_processed_lsn = last_received_lsn;
             } else {
                 current_logger->log_to_console(log_level::WARN, fmt::format("Received unknown message type: {}", message_type));
@@ -270,7 +301,6 @@ bool logical_replication_consumer::consume()
         }
 
         PQfinish(conn);
-        parser_thread.join();
     }
     catch (const exception &e)
     {
